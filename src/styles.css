@@ -9,7 +9,7 @@
 
 :root {
   --ink: #0b0f16;
-  --panel: rgba(18, 24, 34, 0.86);
+  --panel: rgba(18, 24, 34, 0.94);
   --panel-solid: #121824;
   --panel-soft: rgba(26, 34, 46, 0.72);
   --edge: #2b3647;
@@ -91,9 +91,8 @@ body {
   gap: 12px;
   padding: 10px max(16px, env(safe-area-inset-left, 0px));
   padding-right: max(16px, env(safe-area-inset-right, 0px));
-  background: linear-gradient(180deg, rgba(10, 14, 20, 0.92), rgba(10, 14, 20, 0.55));
+  background: linear-gradient(180deg, rgba(10, 14, 20, 0.95), rgba(10, 14, 20, 0.92));
   border-bottom: 1px solid var(--edge);
-  backdrop-filter: blur(6px);
 }
 .tb-logo {
   font-family: var(--display);
@@ -180,7 +179,6 @@ body {
   display: flex;
   flex-direction: column;
   gap: 14px;
-  backdrop-filter: blur(10px);
 }
 .title-logo {
   font-family: var(--display);
@@ -215,7 +213,6 @@ body {
   border-radius: 12px;
   padding: 18px 20px;
   box-shadow: var(--shadow);
-  backdrop-filter: blur(10px);
 }
 .screen-head h2 { font-family: var(--display); font-size: calc(22px * var(--ts)); color: var(--amber-soft); margin: 0 0 8px; }
 .screen-head p { color: var(--fg); margin: 0; }
@@ -239,7 +236,6 @@ body {
   flex-direction: column;
   gap: 6px;
   transition: transform 0.1s, border-color 0.2s;
-  backdrop-filter: blur(8px);
   color: var(--fg);
 }
 .track-card:hover { transform: translateY(-3px); border-color: var(--teal); }
@@ -267,7 +263,6 @@ body {
   border-radius: 14px;
   padding: 22px;
   box-shadow: var(--shadow);
-  backdrop-filter: blur(10px);
 }
 .iv-head { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
 .iv-who { font-family: var(--display); font-size: calc(13px * var(--ts)); color: var(--amber); }
@@ -325,7 +320,6 @@ body {
   border-radius: 12px;
   padding: 16px 18px;
   box-shadow: var(--shadow);
-  backdrop-filter: blur(10px);
 }
 .chapter-badge { font-family: var(--display); font-size: calc(12px * var(--ts)); color: var(--teal); letter-spacing: 1px; }
 .chapter-title { font-family: var(--display); font-size: calc(clamp(22px, 6vw, 30px) * var(--ts)); color: var(--amber); margin: 4px 0 6px; }
@@ -350,7 +344,6 @@ body {
   gap: 6px;
   color: var(--fg);
   transition: transform 0.1s, border-color 0.2s;
-  backdrop-filter: blur(8px);
 }
 .ticket-card:hover { transform: translateY(-2px); }
 .ticket-card.sev-low { border-left-color: var(--sev-low); }
@@ -385,7 +378,6 @@ body {
   border-radius: 12px;
   padding: 14px 18px;
   box-shadow: var(--shadow);
-  backdrop-filter: blur(10px);
 }
 .ws-title { font-family: var(--display); font-size: calc(20px * var(--ts)); color: var(--amber-soft); margin: 6px 0 2px; }
 .ws-client { font-size: calc(13px * var(--ts)); color: var(--fg-dim); }
@@ -402,7 +394,7 @@ body {
 .col-label { font-family: var(--display); font-size: calc(11px * var(--ts)); letter-spacing: 1px; color: var(--teal); text-transform: uppercase; align-self: flex-start; background: rgba(8, 12, 20, 0.82); padding: 4px 9px; border-radius: 6px; }
 .ev-panel { display: flex; flex-direction: column; gap: 12px; }
 .q-panel { display: flex; flex-direction: column; gap: 18px; }
-.q-block { background: var(--panel); border: 1px solid var(--edge); border-radius: var(--radius); padding: 16px; backdrop-filter: blur(8px); }
+.q-block { background: var(--panel); border: 1px solid var(--edge); border-radius: var(--radius); padding: 16px; }
 .ws-feedback { min-height: 4px; }
 .ws-feedback .warn { color: var(--amber-soft); font-size: calc(14px * var(--ts)); }
 
@@ -416,7 +408,6 @@ body {
   border: 1px solid var(--edge);
   border-radius: var(--radius);
   overflow: hidden;
-  backdrop-filter: blur(8px);
 }
 .ev-head { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: rgba(0, 0, 0, 0.3); border-bottom: 1px solid var(--edge); }
 .ev-tag { font-family: var(--display); font-size: calc(9px * var(--ts)); letter-spacing: 1px; color: var(--ink); background: var(--teal); padding: 3px 6px; border-radius: 4px; }
@@ -487,10 +478,9 @@ table.log, table.flow { width: 100%; border-collapse: collapse; font-family: var
   border-radius: 14px;
   padding: 22px 24px;
   box-shadow: var(--shadow);
-  backdrop-filter: blur(10px);
   animation: rise 0.25s ease;
 }
-.vn-box.narration { font-style: italic; color: var(--fg-dim); border-color: var(--edge); background: rgba(14, 18, 26, 0.8); }
+.vn-box.narration { font-style: italic; color: var(--fg-dim); border-color: var(--edge); background: rgba(14, 18, 26, 0.94); }
 .vn-speaker { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
 .vn-speaker .portrait { width: 56px; height: 56px; }
 .vn-name { font-family: var(--display); font-size: calc(15px * var(--ts)); }
@@ -516,7 +506,6 @@ table.log, table.flow { width: 100%; border-collapse: collapse; font-family: var
   border-radius: 16px;
   padding: 36px 30px;
   box-shadow: var(--shadow);
-  backdrop-filter: blur(10px);
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -535,11 +524,10 @@ table.log, table.flow { width: 100%; border-collapse: collapse; font-family: var
   position: fixed;
   inset: 0;
   z-index: 50;
-  background: rgba(4, 6, 10, 0.72);
+  background: rgba(4, 6, 10, 0.88);
   display: grid;
   place-items: center;
   padding: max(16px, env(safe-area-inset-left, 0px));
-  backdrop-filter: blur(4px);
 }
 .overlay-panel {
   width: min(620px, 96vw);
@@ -1138,3 +1126,24 @@ table.log, table.flow { width: 100%; border-collapse: collapse; font-family: var
 
 /* placeholders are hints, so they must be readable too */
 input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
+
+/* Chrome / Safari: restore the frosted-glass blur they composit on the GPU.
+   Firefox supports backdrop-filter but CPU-renders it, which tanks frame rate
+   beside the canvas office animation — so it stays off there. */
+@supports (-webkit-backdrop-filter: blur(1px)) {
+  :root { --panel: rgba(18, 24, 34, 0.86); }
+  .topbar { background: linear-gradient(180deg, rgba(10, 14, 20, 0.92), rgba(10, 14, 20, 0.55)); backdrop-filter: blur(6px); }
+  .title-card { backdrop-filter: blur(10px); }
+  .screen-head { backdrop-filter: blur(10px); }
+  .track-card { backdrop-filter: blur(8px); }
+  .card-panel { backdrop-filter: blur(10px); }
+  .desk-head { backdrop-filter: blur(10px); }
+  .ticket-card { backdrop-filter: blur(8px); }
+  .ws-head { backdrop-filter: blur(10px); }
+  .q-block { backdrop-filter: blur(8px); }
+  .ev { backdrop-filter: blur(8px); }
+  .vn-box { backdrop-filter: blur(10px); }
+  .vn-box.narration { background: rgba(14, 18, 26, 0.8); }
+  .ending-card { backdrop-filter: blur(10px); }
+  .overlay { background: rgba(4, 6, 10, 0.72); backdrop-filter: blur(4px); }
+}
