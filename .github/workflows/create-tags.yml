@@ -1,0 +1,32 @@
+name: Create tags from temp branches
+on:
+  workflow_dispatch:
+
+jobs:
+  create-tags:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create tags and delete temp branches
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "Ahmed Sajid Butt"
+          git config user.email "139685237+CyberAhmedX@users.noreply.github.com"
+
+          for tag in v1.0.0 v1.1.0 v2.0.0 v2.1.0 v2.2.1 v3.0.0; do
+            branch="tag-$tag"
+            if git ls-remote --heads origin "$branch" | grep -q "$branch"; then
+              sha=$(git ls-remote --heads origin "$branch" | awk '{print $1}')
+              echo "Creating tag $tag at $sha"
+              git tag "$tag" "$sha"
+              git push origin "refs/tags/$tag"
+              echo "Deleting branch $branch"
+              git push origin --delete "$branch"
+            fi
+          done
