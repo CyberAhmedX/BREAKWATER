@@ -118,7 +118,7 @@ export async function drawShareCard(info: ShareInfo): Promise<HTMLCanvasElement>
 
   g.fillStyle = "rgba(255,255,255,0.6)";
   g.font = '20px "IBM Plex Mono", monospace';
-  g.fillText("cyberahmedx.github.io/dwell-time", 100, 548);
+  g.fillText("cyberahmedx.github.io/BREAKWATER", 100, 548);
   return c;
 }
 

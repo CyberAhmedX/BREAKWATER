@@ -723,7 +723,7 @@ export class App {
         ? el("span")
         : el("p", { class: "ws-stuck muted" }, [
             el("span", { text: "Stuck? Use a hint if there is one, re-read the evidence, or " }),
-            el("a", { href: "https://github.com/CyberAhmedX/dwell-time/issues", target: "_blank", rel: "noopener", text: "tell me where you got stuck." }),
+            el("a", { href: "https://github.com/CyberAhmedX/BREAKWATER/issues", target: "_blank", rel: "noopener", text: "tell me where you got stuck." }),
           ]);
 
     const body = el("div", { class: "ws-body" }, [
@@ -1546,7 +1546,7 @@ export class App {
       ]);
       const feedback = el("p", { class: "ending-feedback muted" }, [
         el("span", { text: "Got stuck, or found a bug? " }),
-        el("a", { href: "https://github.com/CyberAhmedX/dwell-time/issues", target: "_blank", rel: "noopener", text: "Tell me what happened." }),
+        el("a", { href: "https://github.com/CyberAhmedX/BREAKWATER/issues", target: "_blank", rel: "noopener", text: "Tell me what happened." }),
       ]);
       card.append(again, share, record, endings, feedback);
       this.stage.className = "stage center";

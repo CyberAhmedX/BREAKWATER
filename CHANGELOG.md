@@ -4,7 +4,7 @@ All notable changes to Breakwater, newest first. This file follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [semantic versioning](https://semver.org/).
 
-Play online: https://cyberahmedx.github.io/dwell-time/
+Play online: https://cyberahmedx.github.io/BREAKWATER/
 
 ## [3.0.0] - 2026-11-02
 
