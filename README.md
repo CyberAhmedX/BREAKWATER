@@ -3,7 +3,7 @@
 <p align="center">A cozy-to-dark cybersecurity career game. Screen for a team, investigate, and learn the trade one real case at a time.</p>
 
 <p align="center">
-  <a href="https://cyberahmedx.github.io/dwell-time/"><b>Play in your browser</b></a>
+  <a href="https://cyberahmedx.github.io/BREAKWATER/"><b>Play in your browser</b></a>
   &nbsp;&middot;&nbsp;
   <a href="#screenshots">Screenshots</a>
   &nbsp;&middot;&nbsp;
