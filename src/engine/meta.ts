@@ -31,7 +31,8 @@ export interface MetaData {
 
 export const TEXT_SCALES = [0.9, 1, 1.15, 1.3] as const;
 
-const META_KEY = "dwell-time.meta.v1";
+const META_KEY = "breakwater.meta.v1";
+const OLD_META_KEY = "dwell-time.meta.v1";
 
 export function freshMeta(): MetaData {
   return {
@@ -50,7 +51,14 @@ export function freshMeta(): MetaData {
 
 export function loadMeta(): MetaData {
   try {
-    const raw = localStorage.getItem(META_KEY);
+    let raw = localStorage.getItem(META_KEY);
+    if (!raw) {
+      raw = localStorage.getItem(OLD_META_KEY);
+      if (raw) {
+        localStorage.setItem(META_KEY, raw);
+        localStorage.removeItem(OLD_META_KEY);
+      }
+    }
     if (!raw) return freshMeta();
     const data = JSON.parse(raw) as Partial<MetaData>;
     if (data.version !== 1) return freshMeta();
@@ -64,6 +72,7 @@ export function loadMeta(): MetaData {
 export function saveMeta(meta: MetaData): void {
   try {
     localStorage.setItem(META_KEY, JSON.stringify(meta));
+    localStorage.removeItem(OLD_META_KEY);
   } catch {
     // Same as the run save: no storage means no persistence, not a crash.
   }
@@ -72,6 +81,7 @@ export function saveMeta(meta: MetaData): void {
 export function wipeMeta(): void {
   try {
     localStorage.removeItem(META_KEY);
+    localStorage.removeItem(OLD_META_KEY);
   } catch {
     // ignore
   }

@@ -1,6 +1,6 @@
 # Credits and asset provenance
 
-Where everything in Dwell Time comes from.
+Where everything in Breakwater comes from.
 
 ## Written, designed, and coded
 

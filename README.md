@@ -1,35 +1,35 @@
-<h1 align="center">Dwell Time</h1>
+<h1 align="center">BREAKWATER</h1>
 
-<p align="center">A cozy-to-dark cybersecurity career simulation. Interview, investigate, and learn the trade one real case at a time.</p>
+<p align="center">A cozy-to-dark cybersecurity career game. Screen for a team, investigate, and learn the trade one real case at a time.</p>
 
 <p align="center">
   <a href="https://cyberahmedx.github.io/dwell-time/"><b>Play in your browser</b></a>
-  &nbsp;·&nbsp;
+  &nbsp;&middot;&nbsp;
   <a href="#screenshots">Screenshots</a>
-  &nbsp;·&nbsp;
+  &nbsp;&middot;&nbsp;
   <a href="#what-makes-it-tick">Features</a>
-  &nbsp;·&nbsp;
+  &nbsp;&middot;&nbsp;
   <a href="#run-it-locally">Run it</a>
 </p>
 
 <p align="center">
-  <img src="media/demo.gif" alt="Dwell Time gameplay: applying, interviewing, and working a case" width="720">
+  <img src="media/demo.gif" alt="Breakwater gameplay: applying, screening, and working a case" width="720">
 </p>
 
-<p align="center"><i>Dwell time (noun): how long an intruder stays inside a network before anyone notices. It is also the whole plot.</i></p>
+<p align="center"><i>A breakwater holds the storm back so the harbor stays calm. Lanternhouse Security is the breakwater.</i></p>
 
 ---
 
-You are the newest hire at Lanternhouse Security, a small firm keeping a rainy harbor town safe. You interview for a team, close tickets, climb from Probationary Analyst to Lead, and slowly uncover what has been hiding in the quiet. Your choices lead to one of five endings.
+You are the newest hire at Lanternhouse Security, a small firm keeping a rainy harbor town safe. You screen for a team, close tickets, climb from Probationary Analyst to Lead, and slowly uncover what has been hiding in the quiet. Your choices lead to one of five endings.
 
 It is built for students and people getting ready for a first SOC or help desk job: the cases are real scenarios, explained as you meet them. If you already do this for a living, Hard mode turns off the hints, gives you one attempt per case, and tightens the clock in the live finale.
 
 ## Screenshots
 
-| Apply and interview for real | Learn the trade on real cases |
+| Apply and screen for a team | Learn the trade on real cases |
 | :---: | :---: |
-| ![Choose a career track](media/interview-tracks.png) | ![Investigate a phishing email](media/investigation.png) |
-| **Six teams, each with a real interview** | **Evidence viewers for email, logs, flows and more** |
+| ![Choose a career track](media/screening-tracks.png) | ![Investigate a phishing email](media/investigation.png) |
+| **Six teams, each with a real screening** | **Evidence viewers for email, logs, flows and more** |
 
 | It starts cozy and sunlit | It does not stay that way |
 | :---: | :---: |
@@ -45,7 +45,7 @@ The office darkens with the story: cozy and sunlit at first, then rain, then a s
 
 ## What makes it tick
 
-- **Six job interviews**, one per team: SOC, Network, Help Desk, Forensics, Pentest, Threat Intel. Each draws five questions from a larger pool, so a retry is a fresh interview. Pass one to get hired, and your team shapes the whole run: its own cases through the story, its own hard choice, its own part in the live finale, and a secret only your team can find.
+- **Six screenings**, one per team: SOC, Network, Help Desk, Forensics, Pentest, Threat Intel. Each draws five questions from a larger pool, so a retry is a fresh screening. Pass one to get hired, and your team shapes the whole run: its own cases through the story, its own hard choice, its own part in the live finale, and a secret only your team can find.
 - **A five-chapter main investigation** built from accurate scenarios: phishing, business email compromise, DNS tunneling, forensic timelines, scoped pentests, threat correlation, and a live incident at the water plant.
 - **A side case in every chapter**, from a cat on the keyboard to a backup audit, a cast of coworkers, and **Field Notes** that unlock plain explanations of each concept as you meet it.
 - **A real terminal**: dig through case files with `grep`, `cut`, `sort | uniq -c`, `sha256sum` and pipes, then type what you found. Any command that finds it counts.
@@ -100,8 +100,8 @@ src/
   engine/    state, saves, ranks, flags, ending logic (pure, unit tested)
   scene/     the pixel office, chapter moods, character portraits
   audio/     the generative soundtrack and sound effects
-  ui/        the app controller, evidence viewers, dialogue, interview
-  content/   all writing: interviews, tickets, scenes, codex, endings
+  ui/        the app controller, evidence viewers, dialogue, screening
+  content/   all writing: screenings, tickets, scenes, codex, endings
 tests/       content house-rules and engine logic
 e2e/         a bot that plays the real game in a browser
 media/       screenshots and the demo clip

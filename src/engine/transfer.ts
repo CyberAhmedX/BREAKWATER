@@ -12,9 +12,12 @@ import { type MetaData, freshMeta, TEXT_SCALES } from "./meta";
 // code cut short while pasting, and every field is rebuilt from a fresh save so
 // a hand-edited file cannot put the game in a state it does not expect.
 
-const FORMAT = "dwell-time-save";
-const CODE_PREFIX = "DWELL1."; // deflate-raw compressed
-const PLAIN_PREFIX = "DWELL0."; // uncompressed, for browsers without CompressionStream
+const FORMAT = "breakwater-save";
+const OLD_FORMAT = "dwell-time-save";
+const CODE_PREFIX = "BRKW1."; // deflate-raw compressed
+const PLAIN_PREFIX = "BRKW0."; // uncompressed, for browsers without CompressionStream
+const OLD_CODE_PREFIX = "DWELL1."; // legacy prefix, accepted on import
+const OLD_PLAIN_PREFIX = "DWELL0.";
 
 export interface SaveBundle {
   format: typeof FORMAT;
@@ -41,10 +44,25 @@ export async function bundleToCode(bundle: SaveBundle): Promise<string> {
   return CODE_PREFIX + toBase64Url(await pipe(bytes, new CompressionStream("deflate-raw")));
 }
 
-/** A file name like dwell-time-save-Riley-2026-10-17.json */
+function isCodePrefix(raw: string): boolean {
+  return raw.startsWith(CODE_PREFIX) || raw.startsWith(OLD_CODE_PREFIX);
+}
+
+function isPlainPrefix(raw: string): boolean {
+  return raw.startsWith(PLAIN_PREFIX) || raw.startsWith(OLD_PLAIN_PREFIX);
+}
+
+function stripPrefix(raw: string): string {
+  for (const p of [CODE_PREFIX, OLD_CODE_PREFIX, PLAIN_PREFIX, OLD_PLAIN_PREFIX]) {
+    if (raw.startsWith(p)) return raw.slice(p.length);
+  }
+  return raw;
+}
+
+/** A file name like breakwater-save-Riley-2026-10-17.json */
 export function fileName(save: SaveData, now = new Date()): string {
   const who = save.playerName.replace(/[^A-Za-z0-9-]+/g, "-").replace(/^-+|-+$/g, "") || "save";
-  return `dwell-time-save-${who}-${now.toISOString().slice(0, 10)}.json`;
+  return `breakwater-save-${who}-${now.toISOString().slice(0, 10)}.json`;
 }
 
 /** Read either a save file's text or a pasted save code. */
@@ -55,9 +73,9 @@ export async function readSave(text: string): Promise<ImportResult> {
   let parsed: unknown;
   try {
     let json = raw;
-    if (raw.startsWith(CODE_PREFIX) || raw.startsWith(PLAIN_PREFIX)) {
-      let bytes = fromBase64Url(raw.slice(CODE_PREFIX.length).replace(/\s+/g, ""));
-      if (raw.startsWith(CODE_PREFIX)) {
+    if (isCodePrefix(raw) || isPlainPrefix(raw)) {
+      let bytes = fromBase64Url(stripPrefix(raw).replace(/\s+/g, ""));
+      if (isCodePrefix(raw)) {
         if (typeof DecompressionStream === "undefined") return fail("This browser cannot read save codes. Use a save file instead.");
         bytes = await pipe(bytes, new DecompressionStream("deflate-raw"));
       }
@@ -65,11 +83,11 @@ export async function readSave(text: string): Promise<ImportResult> {
     }
     parsed = JSON.parse(json);
   } catch {
-    return fail(raw.startsWith("DWELL") ? "That save code is damaged or cut short. Copy it again, all of it." : "That is not a Dwell Time save.");
+    return fail(raw.startsWith("BRKW") || raw.startsWith("DWELL") ? "That save code is damaged or cut short. Copy it again, all of it." : "That is not a Breakwater save.");
   }
 
-  if (!isObj(parsed) || parsed.format !== FORMAT) return fail("That is not a Dwell Time save.");
-  if (parsed.version !== 1) return fail("That save comes from a newer version of Dwell Time. Update the game, then try again.");
+  if (!isObj(parsed) || (parsed.format !== FORMAT && parsed.format !== OLD_FORMAT)) return fail("That is not a Breakwater save.");
+  if (parsed.version !== 1) return fail("That save comes from a newer version of Breakwater. Update the game, then try again.");
   if (!isObj(parsed.data) || typeof parsed.check !== "string") return fail("That save is incomplete.");
   if (checksum(JSON.stringify(parsed.data)) !== parsed.check) return fail("That save has been damaged or edited, so it cannot be loaded safely.");
 
@@ -93,11 +111,11 @@ function cleanSave(x: unknown): SaveData | null {
   s.flags = ids(x.flags);
   s.done = ids(x.done);
   s.codex = ids(x.codex);
-  s.interviewScore = count(x.interviewScore);
+  s.screeningScore = count(x.screeningScore ?? x.interviewScore);
   s.cleanCloses = count(x.cleanCloses);
   s.totalCloses = Math.max(count(x.totalCloses), s.cleanCloses);
   s.botched = count(x.botched);
-  s.interviewFails = count(x.interviewFails);
+  s.screeningFails = count(x.screeningFails ?? x.interviewFails);
   s.hintsUsed = count(x.hintsUsed);
   s.hard = x.hard === true;
   s.seed = typeof x.seed === "number" && Number.isFinite(x.seed) ? x.seed >>> 0 : s.seed;

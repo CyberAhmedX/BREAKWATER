@@ -100,7 +100,7 @@ describe("save transfer", () => {
       extra: "ignored",
     };
     const data = { save: odd, meta: { ...m, settings: { music: 9, effects: 0.5, muted: "yes", textScale: 3, reducedMotion: "sometimes", fastDialogue: "yes" } } };
-    const bundle = { format: "dwell-time-save", version: 1, exported: "", check: checksum(JSON.stringify(data)), data };
+    const bundle = { format: "breakwater-save", version: 1, exported: "", check: checksum(JSON.stringify(data)), data };
     const r = await readSave(JSON.stringify(bundle));
     expect(r.ok).toBe(true);
     if (!r.ok) return;
@@ -118,8 +118,8 @@ describe("save transfer", () => {
 
   it("names the file after the player and the date", async () => {
     const { s } = sample();
-    expect(fileName(s, new Date("2026-10-17T12:00:00Z"))).toBe("dwell-time-save-Zo-2026-10-17.json");
-    expect(fileName(freshSave(), new Date("2026-10-17T12:00:00Z"))).toBe("dwell-time-save-save-2026-10-17.json");
+    expect(fileName(s, new Date("2026-10-17T12:00:00Z"))).toBe("breakwater-save-Zo-2026-10-17.json");
+    expect(fileName(freshSave(), new Date("2026-10-17T12:00:00Z"))).toBe("breakwater-save-save-2026-10-17.json");
   });
 
   it("keeps a full run's code short enough to paste on a phone", async () => {
@@ -128,7 +128,7 @@ describe("save transfer", () => {
     s.done = Array.from({ length: 35 }, (_, i) => `case_or_scene_${i}`);
     for (const ch of [1, 2, 3, 4, 5]) recordCheckpoint(m, { ...s, chapter: ch as 1 | 2 | 3 | 4 | 5 });
     const code = await bundleToCode(makeBundle(s, m));
-    expect(code.startsWith("DWELL1.")).toBe(true);
+    expect(code.startsWith("BRKW1.")).toBe(true);
     expect(code.length).toBeLessThan(3_000);
   });
 });

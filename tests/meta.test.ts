@@ -88,11 +88,11 @@ describe("achievements", () => {
     expect(checkAchievements(s, m)).toEqual([]);
   });
 
-  it("First Impression is not given after a failed interview", () => {
+  it("First Impression is not given after a failed screening", () => {
     const m = freshMeta();
     const s = freshSave();
     s.hired = true;
-    s.interviewFails = 1;
+    s.screeningFails = 1;
     expect(checkAchievements(s, m).map((a) => a.id)).not.toContain("first_try");
   });
 

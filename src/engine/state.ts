@@ -11,11 +11,11 @@ export interface SaveData {
   flags: Flag[];
   done: string[]; // completed ticket / scene ids
   codex: string[]; // unlocked codex entry ids
-  interviewScore: number;
+  screeningScore: number;
   cleanCloses: number; // cases closed correctly on the first submit
   totalCloses: number; // cases closed overall (graded ones only)
   botched: number; // critical cases that failed and were force-closed
-  interviewFails: number; // rejected interviews before being hired
+  screeningFails: number; // rejected screenings before being hired
   hintsUsed: number; // hints bought across the run
   hard: boolean; // hard mode: no hints, and every case gets one attempt
   seed: number; // per-run seed: varies some case data each run (see content/vary.ts)
@@ -61,7 +61,8 @@ export const RANK_TITLES = [
 // tests/engine.test.ts checks every rank stays reachable with the cases that exist.
 export const RANK_THRESHOLDS = [0, 1, 110, 290, 520, 750] as const;
 
-const SAVE_KEY = "dwell-time.save.v1";
+const SAVE_KEY = "breakwater.save.v1";
+const OLD_SAVE_KEY = "dwell-time.save.v1";
 
 export function freshSave(): SaveData {
   return {
@@ -75,11 +76,11 @@ export function freshSave(): SaveData {
     flags: [],
     done: [],
     codex: [],
-    interviewScore: 0,
+    screeningScore: 0,
     cleanCloses: 0,
     totalCloses: 0,
     botched: 0,
-    interviewFails: 0,
+    screeningFails: 0,
     hintsUsed: 0,
     hard: false,
     seed: randomSeed(),
@@ -177,13 +178,22 @@ export function unlockCodex(save: SaveData, id: string): void {
 
 export function load(): SaveData {
   try {
-    const raw = localStorage.getItem(SAVE_KEY);
+    let raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) {
+      raw = localStorage.getItem(OLD_SAVE_KEY);
+      if (raw) {
+        localStorage.setItem(SAVE_KEY, raw);
+        localStorage.removeItem(OLD_SAVE_KEY);
+      }
+    }
     if (!raw) return freshSave();
     const data = JSON.parse(raw) as Partial<SaveData>;
     if (data.version !== 1) return freshSave();
     const merged = { ...freshSave(), ...data };
-    // Saves from before per-run seeds get a fresh one so case data still varies.
     if (!Number.isFinite(merged.seed)) merged.seed = randomSeed();
+    const any = data as Record<string, unknown>;
+    if (merged.screeningScore === 0 && typeof any.interviewScore === "number") merged.screeningScore = any.interviewScore as number;
+    if (merged.screeningFails === 0 && typeof any.interviewFails === "number") merged.screeningFails = any.interviewFails as number;
     return merged;
   } catch {
     return freshSave();
@@ -193,6 +203,7 @@ export function load(): SaveData {
 export function save(data: SaveData): void {
   try {
     localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+    localStorage.removeItem(OLD_SAVE_KEY);
   } catch {
     // Storage can be blocked (private mode, disabled). The game still plays,
     // it just will not persist. That is acceptable, do not crash.
@@ -202,6 +213,7 @@ export function save(data: SaveData): void {
 export function wipe(): void {
   try {
     localStorage.removeItem(SAVE_KEY);
+    localStorage.removeItem(OLD_SAVE_KEY);
   } catch {
     // ignore
   }

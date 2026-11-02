@@ -28,7 +28,7 @@ const SKY: Record<string, [string, string, string]> = {
 
 export function shareFileName(ending: Ending, playerName: string): string {
   const who = playerName.replace(/[^A-Za-z0-9-]+/g, "-").replace(/^-+|-+$/g, "") || "analyst";
-  return `dwell-time-${ending.id}-${who}.png`;
+  return `breakwater-${ending.id}-${who}.png`;
 }
 
 export async function drawShareCard(info: ShareInfo): Promise<HTMLCanvasElement> {
@@ -87,7 +87,7 @@ export async function drawShareCard(info: ShareInfo): Promise<HTMLCanvasElement>
 
   g.fillStyle = "#ffd79a";
   g.font = '28px "Silkscreen", monospace';
-  g.fillText("DWELL TIME", 100, 120);
+  g.fillText("BREAKWATER", 100, 120);
 
   g.fillStyle = "rgba(255,255,255,0.7)";
   g.font = '500 22px "IBM Plex Sans", sans-serif';

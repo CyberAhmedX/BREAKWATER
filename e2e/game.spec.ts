@@ -26,7 +26,7 @@ test("one full run, then every other ending through chapter select", async ({ pa
   await page.getByRole("button", { name: "Share card" }).click();
   await expect(page.locator(".share-img")).toBeVisible();
   const [card] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: "Download image" }).click()]);
-  expect(card.suggestedFilename()).toBe("dwell-time-lighthouse-Riley.png");
+  expect(card.suggestedFilename()).toBe("breakwater-lighthouse-Riley.png");
   await page.locator(".overlay-close").click();
 
   // the forensics secret, found during the clean run, is recorded
@@ -77,7 +77,7 @@ test("each team finds its own chapter-three secret", async ({ page }) => {
   test.setTimeout(5 * 60_000);
   for (const [track, flag] of [["helpdesk", "secret_helpdesk"], ["network", "secret_network"], ["intel", "secret_intel"], ["pentest", "secret_pentest"], ["soc", "secret_soc"]] as const) {
     await page.goto(GAME);
-    await page.evaluate(() => { localStorage.removeItem("dwell-time.save.v1"); localStorage.removeItem("dwell-time.meta.v1"); });
+    await page.evaluate(() => { localStorage.removeItem("breakwater.save.v1"); localStorage.removeItem("breakwater.meta.v1"); });
     await page.reload();
     expect(await play(page, { name: "Sam", track, untilChapter: 4 })).toBeNull();
     const s = await save(page);
@@ -93,8 +93,8 @@ test("each team plays its own live finale to an ending", async ({ page }) => {
   for (const track of ["network", "helpdesk", "pentest", "intel"] as const) {
     await page.goto(GAME);
     await page.evaluate((t) => {
-      localStorage.setItem("dwell-time.save.v1", JSON.stringify({ version: 1, playerName: "Fin", track: t, hired: true, chapter: 5, xp: 650, integrity: 4, flags: [`track_${t}`, "knows_truth", "knows_harborwatch", "evidence_chain_intact", "intro_5"], done: ["intro_5"], codex: [], interviewScore: 5, cleanCloses: 9, totalCloses: 9, botched: 0, interviewFails: 0, hintsUsed: 0, hard: false }));
-      localStorage.setItem("dwell-time.meta.v1", JSON.stringify({ version: 1, endings: [], achievements: [], codexEver: [], casesEver: [], secretsEver: [], checkpoints: {}, settings: { music: 0, effects: 0, muted: true, textScale: 1, reducedMotion: true, relaxedTimers: false } }));
+      localStorage.setItem("breakwater.save.v1", JSON.stringify({ version: 1, playerName: "Fin", track: t, hired: true, chapter: 5, xp: 650, integrity: 4, flags: [`track_${t}`, "knows_truth", "knows_harborwatch", "evidence_chain_intact", "intro_5"], done: ["intro_5"], codex: [], screeningScore: 5, cleanCloses: 9, totalCloses: 9, botched: 0, screeningFails: 0, hintsUsed: 0, hard: false }));
+      localStorage.setItem("breakwater.meta.v1", JSON.stringify({ version: 1, endings: [], achievements: [], codexEver: [], casesEver: [], secretsEver: [], checkpoints: {}, settings: { music: 0, effects: 0, muted: true, textScale: 1, reducedMotion: true, relaxedTimers: false } }));
     }, track);
     await page.reload();
     const ending = await play(page, { name: "Fin", track });
@@ -107,7 +107,7 @@ test("the chapter five finale runs live and hands out take-home files", async ({
   test.setTimeout(60_000);
   await page.goto(GAME);
   await page.evaluate(() => {
-    localStorage.setItem("dwell-time.save.v1", JSON.stringify({ version: 1, playerName: "Nz", track: "soc", hired: true, chapter: 5, xp: 600, integrity: 4, flags: ["track_soc", "finale_ready", "intro_5"], done: ["intro_5"], codex: [], interviewScore: 5, cleanCloses: 8, totalCloses: 8, botched: 0, interviewFails: 0, hintsUsed: 0, hard: false }));
+    localStorage.setItem("breakwater.save.v1", JSON.stringify({ version: 1, playerName: "Nz", track: "soc", hired: true, chapter: 5, xp: 600, integrity: 4, flags: ["track_soc", "finale_ready", "intro_5"], done: ["intro_5"], codex: [], screeningScore: 5, cleanCloses: 8, totalCloses: 8, botched: 0, screeningFails: 0, hintsUsed: 0, hard: false }));
   });
   await page.reload();
   await page.getByRole("button", { name: /^Continue as/ }).click();
@@ -137,7 +137,7 @@ test("hard mode never offers a hint, and practice leaves the run alone", async (
   await page.check("#hard-mode");
   await page.getByRole("button", { name: "Apply to Lanternhouse" }).click();
   expect(await play(page, { name: "Kit", track: "helpdesk", untilChapter: 2, hard: true })).toBeNull();
-  const run = await page.evaluate(() => localStorage.getItem("dwell-time.save.v1"));
+  const run = await page.evaluate(() => localStorage.getItem("breakwater.save.v1"));
   const s = await save(page);
   expect(s).toMatchObject({ hard: true, hintsUsed: 0, botched: 0 });
 
@@ -147,7 +147,7 @@ test("hard mode never offers a hint, and practice leaves the run alone", async (
   const first = TICKETS.find((t) => t.id === "t1_bakery_phish")!;
   await practiseCase(page, first.title);
   await practiseCase(page, first.title);
-  expect(await page.evaluate(() => localStorage.getItem("dwell-time.save.v1"))).toBe(run);
+  expect(await page.evaluate(() => localStorage.getItem("breakwater.save.v1"))).toBe(run);
   await page.locator(".overlay-close").click();
   await expect(page.getByRole("button", { name: "Continue as Kit" })).toBeVisible();
   expect(errors).toEqual([]);
@@ -158,8 +158,8 @@ test("a save moves to a fresh browser by file and by code", async ({ page, brows
   await page.goto(GAME);
   await play(page, { name: "Avery", track: "network", untilChapter: 2 });
   const before = await page.evaluate(() => ({
-    save: localStorage.getItem("dwell-time.save.v1"),
-    meta: JSON.parse(localStorage.getItem("dwell-time.meta.v1") ?? "{}"),
+    save: localStorage.getItem("breakwater.save.v1"),
+    meta: JSON.parse(localStorage.getItem("breakwater.meta.v1") ?? "{}"),
   }));
 
   // export both ways
@@ -168,11 +168,11 @@ test("a save moves to a fresh browser by file and by code", async ({ page, brows
   await page.getByRole("button", { name: "Settings" }).click();
   await page.getByRole("button", { name: "Export save" }).click();
   const [download] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: "Download save file" }).click()]);
-  expect(download.suggestedFilename()).toMatch(/^dwell-time-save-Avery-\d{4}-\d{2}-\d{2}\.json$/);
+  expect(download.suggestedFilename()).toMatch(/^breakwater-save-Avery-\d{4}-\d{2}-\d{2}\.json$/);
   const filePath = test.info().outputPath("save.json");
   await download.saveAs(filePath);
   const code = await page.getByLabel("Your save code").inputValue();
-  expect(code.startsWith("DWELL1.")).toBe(true);
+  expect(code.startsWith("BRKW1.")).toBe(true);
 
   const fresh = async () => {
     const ctx = await browser.newContext();
@@ -183,8 +183,8 @@ test("a save moves to a fresh browser by file and by code", async ({ page, brows
   };
   const after = (p: Page) =>
     p.evaluate(() => ({
-      save: localStorage.getItem("dwell-time.save.v1"),
-      meta: JSON.parse(localStorage.getItem("dwell-time.meta.v1") ?? "{}"),
+      save: localStorage.getItem("breakwater.save.v1"),
+      meta: JSON.parse(localStorage.getItem("breakwater.meta.v1") ?? "{}"),
     }));
 
   // by file

@@ -1,4 +1,4 @@
-# Privacy note for Dwell Time
+# Privacy note for Breakwater
 
 Short version: the game does not collect anything about you.
 

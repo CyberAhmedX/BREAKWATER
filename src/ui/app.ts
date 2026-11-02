@@ -56,7 +56,7 @@ import { OfficeScene } from "../scene/office";
 import { drawPortrait } from "../scene/portraits";
 import { audio } from "../audio/audio";
 import { CHARACTERS, charName } from "../content/characters";
-import { INTERVIEWS, interviewFor } from "../content/interviews";
+import { SCREENINGS, screeningFor } from "../content/screenings";
 import { TICKETS, ticketById } from "../content/tickets";
 import { SCENES, sceneById } from "../content/scenes";
 import { CHAPTERS, chapterPlan } from "../content/chapters";
@@ -172,7 +172,7 @@ export class App {
   private renderTopbar(): void {
     const prog = rankProgress(this.s);
     const pct = prog.max ? 100 : Math.round((prog.have / prog.need) * 100);
-    const left = el("div", { class: "tb-left" }, [el("span", { class: "tb-logo", text: "Dwell Time" })]);
+    const left = el("div", { class: "tb-left" }, [el("span", { class: "tb-logo", text: "Breakwater" })]);
 
     let mid: HTMLElement;
     if (this.practice) {
@@ -228,7 +228,7 @@ export class App {
         if (this.s.playerName === "") this.screenTitle();
         else this.screenTrack();
       } else {
-        this.screenInterview();
+        this.screenScreening();
       }
       return;
     }
@@ -282,8 +282,8 @@ export class App {
     });
 
     const card = el("div", { class: "title-card" }, [
-      el("h1", { class: "title-logo", text: "DWELL TIME" }),
-      el("p", { class: "title-sub", text: "how long an intruder stays before anyone notices" }),
+      el("h1", { class: "title-logo", text: "BREAKWATER" }),
+      el("p", { class: "title-sub", text: "a cybersecurity career game" }),
       el("p", { class: "title-blurb", text: "You are the newest hire at Lanternhouse Security, a small firm keeping a rainy harbor town safe. Learn the trade, close the tickets, and find out what has been hiding in the quiet." },
       ),
       el("p", { class: "title-audience", text: "Made for students and beginners getting ready for a SOC or help desk job. Turn on Hard mode if you already do this for a living." }),
@@ -346,21 +346,21 @@ export class App {
   private screenTrack(): void {
     const title = el("div", { class: "screen-head" }, [
       el("h2", { text: `Welcome, ${this.s.playerName}.` }),
-      el("p", { text: "Lanternhouse has openings across six teams. Pick the one you want to interview for. You will be asked real questions, so choose where your instincts are sharpest." }),
+      el("p", { text: "Lanternhouse has openings across six teams. Pick the one you want to screen for. You will be asked real questions, so choose where your instincts are sharpest." }),
     ]);
     const grid = el("div", { class: "track-grid" });
     for (const dept of DEPTS) {
-      const iv = interviewFor(dept);
+      const iv = screeningFor(dept);
       const card = el("button", { class: "track-card", type: "button" }, [
-        this.portrait(iv ? iv.interviewer : "you", 72),
+        this.portrait(iv ? iv.screener : "you", 72),
         el("div", { class: "track-name", text: DEPT_LABEL[dept] }),
-        el("div", { class: "track-by", text: iv ? `Interviewer: ${charName(iv.interviewer)}` : "" }),
+        el("div", { class: "track-by", text: iv ? `Screener: ${charName(iv.screener)}` : "" }),
         el("div", { class: "track-desc", text: TRACK_PITCH[dept] }),
       ]);
       card.addEventListener("click", () => {
         audio.click();
         this.s.track = dept;
-        this.s.interviewScore = 0;
+        this.s.screeningScore = 0;
         this.persist();
         this.render();
       });
@@ -370,28 +370,28 @@ export class App {
     mount(this.stage, title, grid);
   }
 
-  // ----------------------------------------------------------------- interview
-  private screenInterview(): void {
-    const iv = interviewFor(this.s.track as Dept);
+  // ----------------------------------------------------------------- screening
+  private screenScreening(): void {
+    const iv = screeningFor(this.s.track as Dept);
     if (!iv) {
       this.s.track = null;
       this.render();
       return;
     }
     // intro dialogue, then questions one at a time, then verdict. Each sitting
-    // draws its own questions from the pool, so a retry is a new interview.
+    // draws its own questions from the pool, so a retry is a new screening.
     const asked = shuffled(iv.questions).slice(0, iv.asks);
-    this.playDialogue(iv.intro.map((t) => ({ who: iv.interviewer, text: t })), undefined, () => {
-      this.runInterviewQuestions(asked, 0, 0);
+    this.playDialogue(iv.intro.map((t) => ({ who: iv.screener, text: t })), undefined, () => {
+      this.runScreeningQuestions(asked, 0, 0);
     });
   }
 
-  private runInterviewQuestions(asked: SingleQuestion[], i: number, correct: number): void {
-    const iv = interviewFor(this.s.track as Dept)!;
+  private runScreeningQuestions(asked: SingleQuestion[], i: number, correct: number): void {
+    const iv = screeningFor(this.s.track as Dept)!;
     if (i >= asked.length) {
-      this.s.interviewScore = correct;
+      this.s.screeningScore = correct;
       const hired = correct >= iv.passLine;
-      const lines = (hired ? iv.hiredText : iv.rejectedText).map((t) => ({ who: iv.interviewer, text: t }));
+      const lines = (hired ? iv.hiredText : iv.rejectedText).map((t) => ({ who: iv.screener, text: t }));
       this.playDialogue(lines, undefined, () => {
         if (hired) {
           this.s.hired = true;
@@ -403,8 +403,8 @@ export class App {
           this.render();
         } else {
           // rejection is recorded. You can retry, but it goes on the board.
-          this.s.interviewFails++;
-          this.showToast("Interview failed. It stays on your record.");
+          this.s.screeningFails++;
+          this.showToast("Screening failed. It stays on your record.");
           this.s.track = null;
           this.persist();
           this.render();
@@ -414,9 +414,9 @@ export class App {
     }
     const q = asked[i];
     const head = el("div", { class: "iv-head" }, [
-      this.portrait(iv.interviewer, 72),
+      this.portrait(iv.screener, 72),
       el("div", {}, [
-        el("div", { class: "iv-who", text: charName(iv.interviewer) }),
+        el("div", { class: "iv-who", text: charName(iv.screener) }),
         el("div", { class: "iv-count", text: `Question ${i + 1} of ${asked.length}` }),
       ]),
     ]);
@@ -444,7 +444,7 @@ export class App {
         const next = el("button", { class: "btn primary small", type: "button", text: i + 1 < asked.length ? "Next question" : "See the verdict" });
         next.addEventListener("click", () => {
           audio.click();
-          this.runInterviewQuestions(asked, i + 1, correct + (right ? 1 : 0));
+          this.runScreeningQuestions(asked, i + 1, correct + (right ? 1 : 0));
         });
         explain.append(next);
         card.append(explain);
@@ -1510,7 +1510,7 @@ export class App {
           stat("Conduct", con.tier),
           stat("Case accuracy", `${acc}%`),
           stat("Botched", String(this.s.botched)),
-          stat("Interviews failed", String(this.s.interviewFails)),
+          stat("Screenings failed", String(this.s.screeningFails)),
           stat("Secrets found", `${found.length} of ${SECRETS.length}`),
           ...(this.s.hard ? [stat("Mode", "Hard")] : []),
         ]),
@@ -1781,7 +1781,7 @@ export class App {
             stat("Accuracy", `${Math.round(accuracy(this.s) * 100)}%`),
             stat("Clean / total", `${this.s.cleanCloses} / ${this.s.totalCloses}`),
             stat("Botched", String(this.s.botched)),
-            stat("Interviews failed", String(this.s.interviewFails)),
+            stat("Screenings failed", String(this.s.screeningFails)),
           ]),
           el("p", { class: "muted", text: conduct(this.s).note }),
         ])
@@ -1863,7 +1863,7 @@ export class App {
         el("div", { class: "btn-row" }, [exportBtn, importBtn]),
       ]),
       el("div", { class: "set-about" }, [
-        el("p", { text: "Dwell Time is a work of fiction. Every company, person, address and domain is invented. It teaches real cybersecurity ideas through an imagined investigation." }),
+        el("p", { text: "Breakwater is a work of fiction. Every company, person, address and domain is invented. It teaches real cybersecurity ideas through an imagined investigation." }),
         el("p", { class: "muted", text: "All music and sound is generated in your browser. Nothing is sampled or copied." }),
       ]),
       el("div", { class: "set-row danger-row" }, [reset, resetAll]),
@@ -2011,7 +2011,7 @@ export class App {
       file.value = "";
       if (!f) return;
       if (f.size > 1_000_000) {
-        error.textContent = "That file is far too big to be a Dwell Time save.";
+        error.textContent = "That file is far too big to be a Breakwater save.";
         return;
       }
       void check(await f.text());
@@ -2233,4 +2233,4 @@ function mkArrow(dir: "up" | "down", enabled: boolean, on: () => void): HTMLElem
 }
 
 // referenced to keep tree-shaking honest in tests
-export { INTERVIEWS, TICKETS, SCENES, CHAPTERS };
+export { SCREENINGS, TICKETS, SCENES, CHAPTERS };

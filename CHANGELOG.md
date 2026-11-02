@@ -1,10 +1,19 @@
 # Changelog
 
-All notable changes to Dwell Time, newest first. This file follows
+All notable changes to Breakwater, newest first. This file follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [semantic versioning](https://semver.org/).
 
 Play online: https://cyberahmedx.github.io/dwell-time/
+
+## [3.0.0] - 2026-11-02
+
+### Changed
+- **Renamed the game from Dwell Time to BREAKWATER.** Title screen, topbar, share cards, build outputs, docs, and all references updated.
+- **Renamed "interview" to "screening"** throughout: types, functions, UI text, file names, and test descriptions. The six team screenings now say "Screener" instead of "Interviewer".
+- Existing saves are migrated automatically: old localStorage keys, transfer codes (DWELL1./DWELL0.), file format, and field names (interviewScore/interviewFails) are all still accepted on load but new values are written on save.
+- New README with updated name, subtitle, and terminology.
+- Updated screenshots.
 
 ## [2.2.1] - 2026-10-20
 

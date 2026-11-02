@@ -1,12 +1,12 @@
-import type { InterviewTrack } from "../engine/types";
+import type { ScreeningTrack } from "../engine/types";
 
-// One interview per career track. Questions are realistic screening questions
+// One screening per career track. Questions are realistic screening questions
 // a lead would actually ask a junior. You must clear the pass line to be hired.
 
-export const INTERVIEWS: InterviewTrack[] = [
+export const SCREENINGS: ScreeningTrack[] = [
   {
     dept: "soc",
-    interviewer: "mags",
+    screener: "mags",
     intro: [
       "Mags does not look up from her screen when you sit down.",
       "So. SOC. That means alerts, all day, most of them nothing. I need to know you can tell the nothing from the something. Five questions. Answer like it is a Tuesday.",
@@ -152,7 +152,7 @@ export const INTERVIEWS: InterviewTrack[] = [
   },
   {
     dept: "helpdesk",
-    interviewer: "theo",
+    screener: "theo",
     intro: [
       "Theo clears a stack of sticky notes off the spare chair and beams at you.",
       "Help Desk is the front door. Half of security starts as a confused person calling about their password. Be the reason they call us instead of clicking the scary link. Ready?",
@@ -298,7 +298,7 @@ export const INTERVIEWS: InterviewTrack[] = [
   },
   {
     dept: "network",
-    interviewer: "priya",
+    screener: "priya",
     intro: [
       "Priya spins her chair around, already mid-thought.",
       "Networking. Good. Everyone ignores the network until it is the problem, and it is always the problem. Usually DNS. Let us see if you can read a packet's mind.",
@@ -444,7 +444,7 @@ export const INTERVIEWS: InterviewTrack[] = [
   },
   {
     dept: "forensics",
-    interviewer: "imani",
+    screener: "imani",
     intro: [
       "Dr. Vance sets down a mug labeled Exhibit A and folds her hands.",
       "Forensics is patience and proof. We reconstruct what happened from what was left behind, in a way that would survive someone trying to tear it apart. Precision matters here. Let us begin.",
@@ -590,7 +590,7 @@ export const INTERVIEWS: InterviewTrack[] = [
   },
   {
     dept: "pentest",
-    interviewer: "rook",
+    screener: "rook",
     intro: [
       "Rook does not take the hood down, but the handshake is firm.",
       "People think this job is breaking in. It is mostly staying inside the lines while you do it. The lines are called scope. Break those and you are not a tester, you are a problem. Five questions.",
@@ -736,7 +736,7 @@ export const INTERVIEWS: InterviewTrack[] = [
   },
   {
     dept: "intel",
-    interviewer: "juno",
+    screener: "juno",
     intro: [
       "Juno gestures at a corkboard dense with string and printouts.",
       "Threat intel is connecting dots without inventing them. We track who is out there and how they work, so the rest of the team is never surprised twice. The hard part is knowing when a dot is really a dot.",
@@ -882,6 +882,6 @@ export const INTERVIEWS: InterviewTrack[] = [
   },
 ];
 
-export function interviewFor(dept: string): InterviewTrack | undefined {
-  return INTERVIEWS.find((i) => i.dept === dept);
+export function screeningFor(dept: string): ScreeningTrack | undefined {
+  return SCREENINGS.find((i) => i.dept === dept);
 }

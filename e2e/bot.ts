@@ -4,12 +4,12 @@ import { DEPT_LABEL } from "../src/engine/types";
 import { TICKETS } from "../src/content/tickets";
 import { withRunData } from "../src/content/vary";
 import { SCENES } from "../src/content/scenes";
-import { interviewFor } from "../src/content/interviews";
+import { screeningFor } from "../src/content/screenings";
 import { checkScope } from "../src/engine/scope";
 import { parseVector, METRICS } from "../src/engine/cvss";
 import { defang } from "../src/engine/ioc";
 
-// Plays Dwell Time through the real UI, answering from the game's own content.
+// Plays Breakwater through the real UI, answering from the game's own content.
 // Every graded answer is right on the first submit and no hint is bought; the
 // plan only decides the choices that steer the story.
 
@@ -27,11 +27,11 @@ export interface Plan {
 }
 
 export async function save(page: Page): Promise<{ chapter: number; flags: string[]; done: string[]; seed: number }> {
-  return page.evaluate(() => JSON.parse(localStorage.getItem("dwell-time.save.v1") ?? "{}"));
+  return page.evaluate(() => JSON.parse(localStorage.getItem("breakwater.save.v1") ?? "{}"));
 }
 
 export async function meta(page: Page): Promise<{ endings: string[]; achievements: string[]; secretsEver?: string[] }> {
-  return page.evaluate(() => JSON.parse(localStorage.getItem("dwell-time.meta.v1") ?? "{}"));
+  return page.evaluate(() => JSON.parse(localStorage.getItem("breakwater.meta.v1") ?? "{}"));
 }
 
 /** Elements matching selector whose whole text is exactly text. */
@@ -80,7 +80,7 @@ export async function play(page: Page, plan: Plan): Promise<string | null> {
       continue;
     }
     if (await page.locator(".iv-card").count()) {
-      await answerInterview(page, plan.track);
+      await answerScreening(page, plan.track);
       continue;
     }
     if (await page.locator(".ws-title").count()) {
@@ -129,11 +129,11 @@ async function chooseInScene(page: Page, plan: Plan): Promise<void> {
   await withText(page, ".vn-choice .btn.choice", pick.text).click();
 }
 
-async function answerInterview(page: Page, track: Dept): Promise<void> {
+async function answerScreening(page: Page, track: Dept): Promise<void> {
   const card = page.locator(".iv-card");
   const prompt = await card.locator(".q-prompt").innerText();
-  const q = interviewFor(track)!.questions.find((x) => x.prompt === prompt);
-  expect(q, `interview question "${prompt}"`).toBeDefined();
+  const q = screeningFor(track)!.questions.find((x: { prompt: string }) => x.prompt === prompt);
+  expect(q, `screening question "${prompt}"`).toBeDefined();
   await withText(card, ".opt", q!.options[q!.answer]).click();
   await expect(card.locator(".opt.correct")).toHaveText(q!.options[q!.answer]);
   await card.locator(".explain button").click();

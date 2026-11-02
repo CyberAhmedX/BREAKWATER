@@ -1135,7 +1135,7 @@ const STORY_TICKETS: Ticket[] = [
         file: "harborwatch-block-list.txt",
         label: "Block list (.txt)",
         text: [
-          "# Dwell Time: Water & Light incident, indicators to block",
+          "# Breakwater: Water & Light incident, indicators to block",
           "# All addresses are documentation ranges; this is a game artifact.",
           "203.0.113.77   # attacker host, shared HarborWatch credential, seen at every client",
           "",
@@ -1146,7 +1146,7 @@ const STORY_TICKETS: Ticket[] = [
         file: "shared-admin-from-outside.rule",
         label: "Detection rule (.rule)",
         text: [
-          "# Dwell Time: alert on the shared HarborWatch admin account used from outside",
+          "# Breakwater: alert on the shared HarborWatch admin account used from outside",
           "name: HarborWatch shared admin login from external source",
           "index: plant_auth",
           "search: account=lh-admin geo=External",

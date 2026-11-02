@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { TICKETS } from "../src/content/tickets";
-import { INTERVIEWS } from "../src/content/interviews";
+import { SCREENINGS } from "../src/content/screenings";
 
 // A single-answer question gives itself away if the right option is clearly the
 // longest. Keep the correct option within 12 characters of the longest wrong
@@ -8,7 +8,7 @@ import { INTERVIEWS } from "../src/content/interviews";
 describe("answer options", () => {
   const singles: { where: string; id: string; options: string[]; answer: number }[] = [];
   for (const t of TICKETS) for (const q of t.questions) if (q.type === "single") singles.push({ where: t.id, ...q });
-  for (const iv of INTERVIEWS) for (const q of iv.questions) singles.push({ where: `interview:${iv.dept}`, ...q });
+  for (const iv of SCREENINGS) for (const q of iv.questions) singles.push({ where: `screening:${iv.dept}`, ...q });
 
   it("the correct option is never clearly the longest", () => {
     for (const q of singles) {

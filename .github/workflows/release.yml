@@ -30,7 +30,7 @@ jobs:
       - run: npm run check
       - run: npm run build
       - name: Name the playable file
-        run: cp dist/index.html "dwell-time.html"
+        run: cp dist/index.html "breakwater.html"
       - name: Build release notes from CHANGELOG.md
         run: |
           ver="${{ github.event.inputs.tag || github.ref_name }}"
@@ -40,7 +40,7 @@ jobs:
             echo
             echo "Play online: https://cyberahmedx.github.io/dwell-time/"
             echo
-            echo "Or download **dwell-time.html** below and open it in any browser. It is fully self-contained and runs offline, no install required."
+            echo "Or download **breakwater.html** below and open it in any browser. It is fully self-contained and runs offline, no install required."
             echo
             awk -v v="$ver" 'index($0, "## [" v "]") == 1 { g = 1; print; next } g && /^## \[/ { exit } g { print }' CHANGELOG.md
           } > notes.md
@@ -49,10 +49,10 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.event.inputs.tag || github.ref_name }}
-          name: Dwell Time ${{ github.event.inputs.tag || github.ref_name }}
+          name: Breakwater ${{ github.event.inputs.tag || github.ref_name }}
           # Body is the matching section of CHANGELOG.md (the new entry on a
           # version bump). GitHub's auto notes only list PRs, which misses
           # direct pushes to main.
           generate_release_notes: false
-          files: dwell-time.html
+          files: breakwater.html
           body_path: notes.md

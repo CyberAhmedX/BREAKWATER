@@ -1,4 +1,4 @@
-// Core data model for Dwell Time. Content is plain data so it can be unit tested.
+// Core data model for Breakwater. Content is plain data so it can be unit tested.
 
 import type { Flow as FirewallFlow } from "./firewall";
 import type { ConsoleAction, ConsoleGoal, ConsoleIntruder, ConsoleUser } from "./console";
@@ -476,11 +476,11 @@ export interface Takeaway {
   text: string;
 }
 
-// ---------- Interview ----------
+// ---------- Screening ----------
 
-export interface InterviewTrack {
+export interface ScreeningTrack {
   dept: Dept;
-  interviewer: string;
+  screener: string;
   intro: string[];
   questions: SingleQuestion[]; // the pool; each sitting asks a random handful
   asks: number; // how many questions one sitting asks

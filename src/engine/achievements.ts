@@ -22,8 +22,8 @@ export const ACHIEVEMENTS: Achievement[] = [
   {
     id: "first_try",
     title: "First Impression",
-    desc: "Get hired on your first interview.",
-    earned: (s) => s.hired && s.interviewFails === 0,
+    desc: "Get hired on your first screening.",
+    earned: (s) => s.hired && s.screeningFails === 0,
   },
   {
     id: "chain",

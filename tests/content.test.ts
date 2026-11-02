@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { INTERVIEWS } from "../src/content/interviews";
+import { SCREENINGS } from "../src/content/screenings";
 import { TICKETS } from "../src/content/tickets";
 import { SCENES } from "../src/content/scenes";
 import { CHAPTERS } from "../src/content/chapters";
@@ -27,7 +27,7 @@ function allText(): string[] {
     if (typeof s === "string") out.push(s);
   };
 
-  for (const iv of INTERVIEWS) {
+  for (const iv of SCREENINGS) {
     iv.intro.forEach(push);
     iv.hiredText.forEach(push);
     iv.rejectedText.forEach(push);
@@ -290,7 +290,7 @@ describe("content integrity", () => {
         }
       }
     }
-    for (const iv of INTERVIEWS) {
+    for (const iv of SCREENINGS) {
       for (const q of iv.questions) {
         expect(q.answer).toBeGreaterThanOrEqual(0);
         expect(q.answer).toBeLessThan(q.options.length);
@@ -318,15 +318,15 @@ describe("content integrity", () => {
     }
   });
 
-  it("each interview is winnable and losable", () => {
-    for (const iv of INTERVIEWS) {
+  it("each screening is winnable and losable", () => {
+    for (const iv of SCREENINGS) {
       expect(iv.passLine).toBeGreaterThan(0);
       expect(iv.passLine).toBeLessThanOrEqual(iv.asks);
     }
   });
 
-  it("each interview draws from a pool big enough that a retry is a different interview", () => {
-    for (const iv of INTERVIEWS) {
+  it("each screening draws from a pool big enough that a retry is a different screening", () => {
+    for (const iv of SCREENINGS) {
       expect(iv.asks, iv.dept).toBeLessThanOrEqual(iv.questions.length);
       expect(iv.questions.length, iv.dept).toBeGreaterThanOrEqual(iv.asks + 3);
     }
@@ -339,7 +339,7 @@ describe("content integrity", () => {
 describe("answer options do not give the answer away", () => {
   const singles = [
     ...TICKETS.flatMap((t) => t.questions),
-    ...INTERVIEWS.flatMap((iv) => iv.questions),
+    ...SCREENINGS.flatMap((iv) => iv.questions),
   ].filter((q) => q.type === "single");
 
   it("the correct option is never much longer than the longest wrong one", () => {
@@ -395,7 +395,7 @@ describe("spot questions, hints and ATT&CK tags", () => {
   });
 
   it("question ids are unique", () => {
-    const ids = [...TICKETS.flatMap((t) => t.questions.map((q) => q.id)), ...INTERVIEWS.flatMap((iv) => iv.questions.map((q) => q.id))];
+    const ids = [...TICKETS.flatMap((t) => t.questions.map((q) => q.id)), ...SCREENINGS.flatMap((iv) => iv.questions.map((q) => q.id))];
     expect(ids.length).toBe(new Set(ids).size);
   });
 

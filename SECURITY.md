@@ -1,6 +1,6 @@
 # Security Policy
 
-Dwell Time is a single, self-contained HTML game that runs entirely in your
+Breakwater is a single, self-contained HTML game that runs entirely in your
 browser. It has no server, no accounts, and no network calls, and it stores
 save data only in your own browser's local storage. The attack surface is
 small, but reports are welcome.

@@ -1,6 +1,6 @@
 import type { Chapter } from "../engine/types";
 
-// Every sound in Dwell Time is synthesized at runtime with the Web Audio API.
+// Every sound in Breakwater is synthesized at runtime with the Web Audio API.
 // Nothing is sampled or copied. The soundtrack is a slow generative pad plus a
 // sparse melody whose scale and tempo shift with the chapter: warm and major
 // early, hollow and minor by the storm.

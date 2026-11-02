@@ -82,7 +82,7 @@ const FINALE_NETWORK: Ticket = {
     {
       file: "plant-boundary.rules",
       label: "Boundary rules (.rules)",
-      text: ["# Dwell Time: plant boundary, emergency containment", "deny from attacker to ot", "allow from sensors to historian", "allow from business to ot", "deny from any to any"].join("\n"),
+      text: ["# Breakwater: plant boundary, emergency containment", "deny from attacker to ot", "allow from sensors to historian", "allow from business to ot", "deny from any to any"].join("\n"),
     },
   ],
   setFlags: ["finale_ready"],
@@ -239,7 +239,7 @@ const FINALE_FORENSICS: Ticket = {
     {
       file: "order-of-volatility.txt",
       label: "Capture order (.txt)",
-      text: ["# Dwell Time: live capture, order of volatility", "1. Memory (RAM)", "2. Live network connections", "3. Disk image", "4. Then contain: isolate and power down"].join("\n"),
+      text: ["# Breakwater: live capture, order of volatility", "1. Memory (RAM)", "2. Live network connections", "3. Disk image", "4. Then contain: isolate and power down"].join("\n"),
     },
   ],
   setFlags: ["finale_ready"],
@@ -373,7 +373,7 @@ const FINALE_INTEL: Ticket = {
     {
       file: "attack-mapping.txt",
       label: "ATT&CK notes (.txt)",
-      text: ["# Dwell Time: live incident, ATT&CK mapping", "T1078  Valid Accounts        shared HarborWatch admin login", "T1046  Network Service Discovery  scanning the OT boundary", "T1555  Credentials from Password Stores  scraping saved logins"].join("\n"),
+      text: ["# Breakwater: live incident, ATT&CK mapping", "T1078  Valid Accounts        shared HarborWatch admin login", "T1046  Network Service Discovery  scanning the OT boundary", "T1555  Credentials from Password Stores  scraping saved logins"].join("\n"),
     },
   ],
   setFlags: ["finale_ready"],
