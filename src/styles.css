@@ -170,7 +170,7 @@ body {
 
 /* ------------------------------------------------------------------ title */
 .title-card {
-  width: min(520px, 94vw);
+  width: min(520px, 100%);
   background: var(--panel);
   border: 1px solid var(--edge-warm);
   border-radius: 16px;
