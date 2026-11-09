@@ -1,5 +1,5 @@
 import { expect, type Locator, type Page } from "@playwright/test";
-import type { Dept, Question } from "../src/engine/types";
+import type { Dept, Question, Ticket } from "../src/engine/types";
 import { DEPT_LABEL } from "../src/engine/types";
 import { TICKETS } from "../src/content/tickets";
 import { withRunData } from "../src/content/vary";
@@ -8,6 +8,7 @@ import { screeningFor } from "../src/content/screenings";
 import { checkScope } from "../src/engine/scope";
 import { parseVector, METRICS } from "../src/engine/cvss";
 import { defang } from "../src/engine/ioc";
+import { LOCKOUT_PROOF } from "../src/engine/webapp";
 
 // Plays Breakwater through the real UI, answering from the game's own content.
 // Every graded answer is right on the first submit and no hint is bought; the
@@ -154,17 +155,18 @@ async function workCase(page: Page, plan: Plan): Promise<void> {
   const blocks = page.locator(".q-panel .q-block");
   await expect(blocks).toHaveCount(t!.questions.length);
   if (plan.hard) await expect(page.locator(".hint-btn")).toHaveCount(0);
-  for (let i = 0; i < t!.questions.length; i++) await answer(page, blocks.nth(i), t!.questions[i], plan);
+  for (let i = 0; i < t!.questions.length; i++) await answer(page, blocks.nth(i), t!.questions[i], plan, t!);
   await page.getByRole("button", { name: "Submit findings" }).click();
   await expect(close, `${t!.id} should close on the first submit`).toBeVisible();
   await expect(page.locator(".ws-feedback .good-note")).toBeVisible();
 }
 
-export async function answerOne(page: Page, block: Locator, q: Question): Promise<void> {
-  return answer(page, block, q, { name: "x", track: "soc" });
+export async function answerOne(page: Page, block: Locator, q: Question, t: Ticket): Promise<void> {
+  return answer(page, block, q, { name: "x", track: "soc" }, t);
 }
 
-async function answer(page: Page, block: Locator, q: Question, plan: Plan): Promise<void> {
+// t is the case as this run sees it, so evidence lookups match what is on screen
+async function answer(page: Page, block: Locator, q: Question, plan: Plan, t: Ticket): Promise<void> {
   const opt = (text: string): Locator => withText(block, ".opt", text);
   switch (q.type) {
     case "single":
@@ -207,6 +209,20 @@ async function answer(page: Page, block: Locator, q: Question, plan: Plan): Prom
     case "request": {
       const rq = page.locator(`[data-ev="${q.evidence}"]`);
       const box = rq.locator(".req-input");
+      const rev = t.evidence.find((e) => e.id === q.evidence);
+      if (rev?.kind !== "request") throw new Error(`${q.evidence} is not a request editor`);
+      if (rev.app.kind === "login") {
+        // show there is no lockout with a few wrong guesses, then sign in
+        for (let i = 0; i < LOCKOUT_PROOF; i++) {
+          await rq.getByRole("button", { name: "Send" }).click();
+          await expect(rq.locator(".req-response")).toContainText(`"failed_attempts": ${i + 1}`);
+        }
+        const guess = await box.inputValue();
+        await box.fill(guess.replace(/pass=.*$/, `pass=${rev.app.password}`));
+        await rq.getByRole("button", { name: "Send" }).click();
+        await expect(rq.locator(".req-response")).toContainText("signed_in_as");
+        return;
+      }
       await rq.getByRole("button", { name: "Send" }).click();
       // change the booking id to one that is not ours and send again
       const text = await box.inputValue();
@@ -217,7 +233,7 @@ async function answer(page: Page, block: Locator, q: Question, plan: Plan): Prom
     }
     case "merge": {
       const tl = page.locator(`[data-ev="${q.evidence}"]`);
-      const ev = TICKETS.flatMap((t) => t.evidence).find((e) => e.id === q.evidence);
+      const ev = t.evidence.find((e) => e.id === q.evidence);
       if (ev?.kind !== "merge") throw new Error(`${q.evidence} is not a timeline builder`);
       for (const src of ev.sources) await tl.locator(`select[data-source="${src.id}"]`).selectOption(String(src.offset));
       return;
@@ -253,14 +269,15 @@ async function answer(page: Page, block: Locator, q: Question, plan: Plan): Prom
     case "scope": {
       // check each target in the scope checker first, the way a tester would
       const sc = page.locator(`[data-ev="${q.evidence}"]`);
-      const ev = TICKETS.flatMap((t) => t.evidence).find((e) => e.id === q.evidence);
+      const ev = t.evidence.find((e) => e.id === q.evidence);
       if (ev?.kind !== "scope") throw new Error(`${q.evidence} is not a scope checker`);
-      for (const t of q.targets) {
-        await sc.locator(".sc-input").fill(t.address);
+      for (const target of q.targets) {
+        await sc.locator(".sc-input").fill(target.address);
         await sc.locator(".sc-input").press("Enter");
-        const inScope = checkScope(ev, t.address).inScope;
+        const inScope = checkScope(ev, target.address).inScope;
         await expect(sc.locator(".sc-line").first()).toContainText(inScope ? "IN SCOPE" : "OUT OF SCOPE");
-        if (inScope) await block.locator(".opt", { hasText: t.address }).click();
+        // match the whole address, so 10.20.0.1 does not also match 10.20.0.100
+        if (inScope) await block.locator(".opt").filter({ has: page.locator(".mono", { hasText: new RegExp(`^${target.address.replace(/\./g, "\\.")}$`) }) }).click();
       }
       return;
     }

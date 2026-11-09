@@ -3,7 +3,7 @@
 // and private addresses, and only .example / .test domains, as everywhere else.
 
 /** Small seeded random generator (mulberry32). */
-function rng(seed: number): () => number {
+export function rng(seed: number): () => number {
   let a = seed >>> 0;
   return () => {
     a = (a + 0x6d2b79f5) >>> 0;
@@ -12,6 +12,39 @@ function rng(seed: number): () => number {
     t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
+}
+
+/**
+ * A generator for one case in one run. Each case gets its own stream from the
+ * run's seed, so changing how one case draws never shifts another.
+ */
+export function caseRng(seed: number, caseId: string): () => number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < caseId.length; i++) {
+    h ^= caseId.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return rng((seed ^ h) >>> 0);
+}
+
+/** One item of a list, chosen by the generator. */
+export function pickOne<T>(r: () => number, list: readonly T[]): T {
+  return list[Math.floor(r() * list.length)];
+}
+
+/** A whole number from lo to hi, both included. */
+export function between(r: () => number, lo: number, hi: number): number {
+  return lo + Math.floor(r() * (hi - lo + 1));
+}
+
+/** A shuffled copy of a list (Fisher-Yates), in the generator's order. */
+export function shuffledBy<T>(r: () => number, list: readonly T[]): T[] {
+  const a = list.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(r() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
 }
 
 const pad = (n: number): string => String(n).padStart(2, "0");
@@ -173,4 +206,40 @@ export function clinicVpnEvents(seed: number): ClinicVpn {
     sprayAccounts: targets.length,
     breached,
   };
+}
+
+// ------------------------------------------------------------------ HarborWatch alerts
+
+const HW_CLIENTS = ["clinic", "school", "harbor", "bakery", "water plant"];
+
+export interface HwAlerts {
+  events: Record<string, string>[];
+  fields: string[];
+  total: number;
+  outside: number; // how many came from outside the office network
+  outsideIp: string;
+}
+
+/**
+ * One stormy night of "shared HarborWatch login used" alerts, the ones Walter
+ * calls noise. Most are staff on the office network, 10.50.0.0/16, checking on
+ * clients. A handful are the same login used from the recurring hosting
+ * address. Seeded per run: how busy the night is and how many are from outside.
+ */
+export function hwAlertEvents(seed: number): HwAlerts {
+  const r = caseRng(seed, "t4_soc");
+  const rows: { t: number; e: Record<string, string> }[] = [];
+  const outsideIp = "203.0.113.77";
+  const inside = between(r, 38, 64);
+  for (let i = 0; i < inside; i++) {
+    const t = 18 * 3600 + Math.floor(r() * 5 * 3600);
+    rows.push({ t, e: { _time: clock(t), account: "hw-admin", src_ip: `10.50.1.${between(r, 11, 24)}`, client: pickOne(r, HW_CLIENTS) } });
+  }
+  const outside = between(r, 3, 6);
+  for (let i = 0; i < outside; i++) {
+    const t = 20 * 3600 + Math.floor(r() * 3 * 3600);
+    rows.push({ t, e: { _time: clock(t), account: "hw-admin", src_ip: outsideIp, client: i === 0 ? "water plant" : pickOne(r, HW_CLIENTS) } });
+  }
+  rows.sort((a, b) => a.t - b.t);
+  return { events: rows.map((x) => x.e), fields: ["account", "src_ip", "client"], total: rows.length, outside, outsideIp };
 }

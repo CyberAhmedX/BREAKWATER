@@ -1,9 +1,10 @@
 // A tiny simulated web server for the request editor, so a pentest hire can
-// find a broken-access-control bug by hand: edit a request, send it, read the
-// reply. Everything is fictional and runs in the browser; nothing leaves it and
-// no real site is involved. The one app here serves booking records by id
-// without checking whether the record belongs to the signed-in session, which
-// is the whole lesson (OWASP: broken access control / IDOR).
+// find a flaw by hand: edit a request, send it, read the reply. Everything is
+// fictional and runs in the browser; nothing leaves it and no real site is
+// involved. There are two apps. The booking app serves records by id without
+// checking whether the record belongs to the signed-in session (OWASP: broken
+// access control / IDOR). The login app is a lab copy of an old admin login
+// with no lockout and no second factor, so guesses are free.
 
 export interface HttpRequest {
   method: string;
@@ -22,7 +23,8 @@ export interface HttpResponse {
 export class RequestError extends Error {}
 
 /** One fictional booking app. The handler ignores who owns a record on purpose. */
-export interface WebApp {
+export interface BookingApp {
+  kind?: "booking";
   host: string;
   method: string; // the method the booking endpoint answers
   route: string; // the path, e.g. /booking
@@ -31,6 +33,31 @@ export interface WebApp {
   yourId: string; // the one booking that session is actually allowed to see
   records: Record<string, Record<string, string>>; // id -> fields shown in the reply
 }
+
+/** A lab copy of an admin login. It never locks and never asks for a second factor. */
+export interface LoginApp {
+  kind: "login";
+  host: string;
+  route: string; // the path, e.g. /login
+  user: string; // the one account that exists
+  password: string; // the password that still works
+  role: string; // what a successful sign-in gets, shown in the reply
+}
+
+export type WebApp = BookingApp | LoginApp;
+
+/** What the editor remembers between sends, so a case can ask for more than one request. */
+export interface WebSession {
+  failures: number; // failed sign-ins so far (login app)
+  proved: boolean;
+}
+
+export function newSession(): WebSession {
+  return { failures: 0, proved: false };
+}
+
+/** How many wrong guesses show that the login never locks. */
+export const LOCKOUT_PROOF = 3;
 
 /** Parse a raw request (request line, headers, blank line, body). */
 export function parseRequest(text: string): HttpRequest {
@@ -71,8 +98,66 @@ const respond = (status: number, reason: string, lines: string[]): HttpResponse 
   body: `{\n${lines.map((l) => `  ${l}`).join(",\n")}\n}`,
 });
 
-/** Serve one request against the app. The booking lookup never checks ownership. */
-export function serve(app: WebApp, req: HttpRequest): HttpResponse {
+function form(body: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const pair of body.trim().split("&")) {
+    if (!pair) continue;
+    const eq = pair.indexOf("=");
+    try {
+      out[decodeURIComponent(eq === -1 ? pair : pair.slice(0, eq)).trim()] = eq === -1 ? "" : decodeURIComponent(pair.slice(eq + 1).replace(/\+/g, " ")).trim();
+    } catch {
+      // a stray % is just a bad guess, not a crash
+      out[(eq === -1 ? pair : pair.slice(0, eq)).trim()] = eq === -1 ? "" : pair.slice(eq + 1).trim();
+    }
+  }
+  return out;
+}
+
+/** Was this a sign-in with the right account and password? */
+function signsIn(app: LoginApp, req: HttpRequest): boolean {
+  const { pathname } = query(req.path);
+  const f = form(req.body);
+  return pathname === app.route && req.method === "POST" && f.user === app.user && f.pass === app.password;
+}
+
+/** The login app. `failures` is how many wrong guesses came before this request. */
+function serveLogin(app: LoginApp, req: HttpRequest, failures: number): HttpResponse {
+  const { pathname } = query(req.path);
+  if (pathname !== app.route) {
+    return respond(404, "Not Found", [`"error": "no such page: ${pathname}"`, `"hint": "the sign-in is POST ${app.route} with user=...&pass=... in the body"`]);
+  }
+  if (req.method !== "POST") {
+    return respond(405, "Method Not Allowed", [`"error": "${pathname} answers POST, not ${req.method}"`]);
+  }
+  const f = form(req.body);
+  if (!f.user || f.pass === undefined || f.pass === "") {
+    return respond(400, "Bad Request", [`"error": "send user=...&pass=... in the body, after a blank line"`]);
+  }
+  if (signsIn(app, req)) {
+    return respond(200, "OK", [`"signed_in_as": ${JSON.stringify(app.user)}`, `"role": ${JSON.stringify(app.role)}`, `"second_factor_asked": false`, `"failed_attempts_before_this": ${failures}`]);
+  }
+  return respond(401, "Unauthorized", [`"error": "wrong user or password"`, `"failed_attempts": ${failures + 1}`, `"account_locked": false`]);
+}
+
+/**
+ * Send one request in an editor session: the reply, with the session updated.
+ * The booking app is proved by a 200 for a record that is not yours. The login
+ * app is proved by showing it never locks (a few wrong guesses) and then
+ * signing in.
+ */
+export function send(app: WebApp, req: HttpRequest, session: WebSession): HttpResponse {
+  if (app.kind !== "login") {
+    if (provedIdor(app, req)) session.proved = true;
+    return serve(app, req);
+  }
+  const res = serveLogin(app, req, session.failures);
+  if (res.status === 401) session.failures++;
+  if (res.status === 200 && session.failures >= LOCKOUT_PROOF) session.proved = true;
+  return res;
+}
+
+/** Serve one request against the booking app. The lookup never checks ownership. */
+export function serve(app: BookingApp, req: HttpRequest): HttpResponse {
   const { pathname, params } = query(req.path);
   if (pathname !== app.route) {
     return respond(404, "Not Found", [`"error": "no such page: ${pathname}"`, `"hint": "the booking lookup is ${app.method} ${app.route}?${app.param}=..."`]);
@@ -103,7 +188,7 @@ function sessionOf(req: HttpRequest): string {
 }
 
 /** Did this response prove the access-control bug: a 200 for a booking that is not yours? */
-export function provedIdor(app: WebApp, req: HttpRequest): boolean {
+export function provedIdor(app: BookingApp, req: HttpRequest): boolean {
   const res = serve(app, req);
   const { pathname, params } = query(req.path);
   return res.status === 200 && pathname === app.route && params[app.param] !== undefined && params[app.param] !== app.yourId && app.records[params[app.param]] !== undefined;

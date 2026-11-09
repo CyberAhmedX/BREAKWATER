@@ -190,7 +190,12 @@ export function load(): SaveData {
     const data = JSON.parse(raw) as Partial<SaveData>;
     if (data.version !== 1) return freshSave();
     const merged = { ...freshSave(), ...data };
-    if (!Number.isFinite(merged.seed)) merged.seed = randomSeed();
+    // A save from before per-run cases has no seed. Give it one and write it
+    // back at once, so a reload in the middle of a case draws the same data.
+    if (!Number.isFinite(data.seed)) {
+      merged.seed = randomSeed();
+      save({ ...merged });
+    }
     const any = data as Record<string, unknown>;
     if (merged.screeningScore === 0 && typeof any.interviewScore === "number") merged.screeningScore = any.interviewScore as number;
     if (merged.screeningFails === 0 && typeof any.interviewFails === "number") merged.screeningFails = any.interviewFails as number;

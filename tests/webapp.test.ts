@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { parseRequest, serve, provedIdor, RequestError, type WebApp } from "../src/engine/webapp";
+import { parseRequest, serve, send, newSession, provedIdor, LOCKOUT_PROOF, RequestError, type BookingApp, type LoginApp } from "../src/engine/webapp";
 
-const app: WebApp = {
+const app: BookingApp = {
   host: "booking.harbor-halden.example",
   method: "GET",
   route: "/booking",
@@ -56,5 +56,55 @@ describe("the booking app", () => {
     expect(provedIdor(app, parseRequest(base))).toBe(false);
     expect(provedIdor(app, parseRequest(base.replace("id=1041", "id=1042")))).toBe(true);
     expect(provedIdor(app, parseRequest(base.replace("id=1041", "id=9999")))).toBe(false);
+  });
+});
+
+describe("the lab login", () => {
+  const login: LoginApp = { kind: "login", host: "harborwatch-lab.test", route: "/login", user: "hw-admin", password: "Harbor!Watch2021", role: "full admin" };
+  const post = (pass: string): ReturnType<typeof parseRequest> => parseRequest(`POST /login HTTP/1.1\nHost: harborwatch-lab.test\n\nuser=hw-admin&pass=${pass}`);
+
+  it("counts wrong guesses and never locks", () => {
+    const session = newSession();
+    for (let i = 1; i <= 6; i++) {
+      const res = send(login, post(`guess${i}`), session);
+      expect(res.status).toBe(401);
+      expect(res.body).toContain(`"failed_attempts": ${i}`);
+      expect(res.body).toContain('"account_locked": false');
+    }
+    expect(session.proved).toBe(false);
+  });
+
+  it("is proved only by free guesses and then the real password", () => {
+    const early = newSession();
+    expect(send(login, post("Harbor!Watch2021"), early).status).toBe(200);
+    expect(early.proved, "signing in alone does not show there is no lockout").toBe(false);
+
+    const session = newSession();
+    for (let i = 0; i < LOCKOUT_PROOF; i++) send(login, post("nope"), session);
+    const res = send(login, post("Harbor!Watch2021"), session);
+    expect(res.status).toBe(200);
+    expect(res.body).toContain('"second_factor_asked": false');
+    expect(session.proved).toBe(true);
+  });
+
+  it("explains a wrong method, a wrong page and a missing body", () => {
+    const session = newSession();
+    expect(send(login, parseRequest("GET /login HTTP/1.1\nHost: h"), session).status).toBe(405);
+    expect(send(login, parseRequest("POST /admin HTTP/1.1\nHost: h\n\nuser=a&pass=b"), session).status).toBe(404);
+    expect(send(login, parseRequest("POST /login HTTP/1.1\nHost: h"), session).status).toBe(400);
+    expect(session.failures).toBe(0);
+  });
+
+  it("does not crash on a badly encoded guess", () => {
+    const session = newSession();
+    expect(send(login, post("100%zz"), session).status).toBe(401);
+  });
+
+  it("the booking app still proves through a session", () => {
+    const session = newSession();
+    send(app, parseRequest(base), session);
+    expect(session.proved).toBe(false);
+    send(app, parseRequest(base.replace("id=1041", "id=1042")), session);
+    expect(session.proved).toBe(true);
   });
 });

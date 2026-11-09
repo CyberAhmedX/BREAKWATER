@@ -1,19 +1,20 @@
 import type { RequestEvidence } from "../engine/types";
-import { parseRequest, serve, provedIdor, RequestError } from "../engine/webapp";
+import { parseRequest, send as sendRequest, newSession, RequestError, type WebSession } from "../engine/webapp";
 import { el } from "./dom";
 
 // The request editor: a raw request you can edit, a Send button, and the reply
 // from the fictional app. Like a stripped-down Burp Repeater. It remembers
-// whether you have reached a booking that is not yours, for the question to check.
+// whether you have proved the flaw (a booking that is not yours, or a login
+// that never locks and then lets you in), for the question to check.
 //
 // Each send fires a "tool-command" event, so the case can count them.
 
-const proved = new WeakMap<HTMLElement, boolean>();
+const sessions = new WeakMap<HTMLElement, WebSession>();
 
-/** Has the access-control bug been proved in this editor yet? */
+/** Has the flaw been proved in this editor yet? */
 export function requestProvedOf(view: HTMLElement): boolean {
   const body = view.matches(".req") ? view : view.querySelector<HTMLElement>(".req");
-  return body ? (proved.get(body) ?? false) : false;
+  return body ? (sessions.get(body)?.proved ?? false) : false;
 }
 
 export function requestView(ev: RequestEvidence): HTMLElement {
@@ -31,13 +32,14 @@ export function requestView(ev: RequestEvidence): HTMLElement {
   const status = el("p", { class: "req-status", role: "status" });
   const response = el("pre", { class: "req-response", "aria-label": "Response" });
   const body = el("div", { class: "req" }, [
-    el("p", { class: "req-target", text: `Target: ${ev.app.host} (a test site, in scope). Edit the request and send it.` }),
+    el("p", { class: "req-target", text: `Target: ${ev.app.host} (${ev.app.kind === "login" ? "a lab copy, yours to test" : "a test site, in scope"}). Edit the request and send it.` }),
     editor,
     el("div", { class: "btn-row" }, [send, reset]),
     status,
     response,
   ]);
-  proved.set(body, false);
+  const session = newSession();
+  sessions.set(body, session);
 
   const run = (): void => {
     let req;
@@ -50,13 +52,12 @@ export function requestView(ev: RequestEvidence): HTMLElement {
       response.textContent = "";
       return;
     }
-    const res = serve(ev.app, req);
+    const res = sendRequest(ev.app, req, session);
     const ok = res.status >= 200 && res.status < 300;
     status.className = ok ? "req-status good" : "req-status";
     status.textContent = `HTTP ${res.status} ${res.reason}`;
     const headers = Object.entries(res.headers).map(([k, v]) => `${k}: ${v}`).join("\n");
     response.textContent = `HTTP/1.1 ${res.status} ${res.reason}\n${headers}\n\n${res.body}`;
-    if (provedIdor(ev.app, req)) proved.set(body, true);
     body.dispatchEvent(new CustomEvent("tool-command", { bubbles: true, detail: { kind: "request", evidence: ev.id, line: req.path } }));
   };
 

@@ -121,7 +121,7 @@ test("the chapter five finale runs live and hands out take-home files", async ({
   // solve it, then take home the block list
   const t = TICKETS.find((x) => x.id === "t5_plant_recon")!;
   const blocks = page.locator(".q-panel .q-block");
-  for (let i = 0; i < t.questions.length; i++) await answerOne(page, blocks.nth(i), t.questions[i]);
+  for (let i = 0; i < t.questions.length; i++) await answerOne(page, blocks.nth(i), t.questions[i], t);
   await page.getByRole("button", { name: "Submit findings" }).click();
   await expect(page.locator(".ws-feedback .good-note")).toBeVisible();
   const [dl] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: "Block list (.txt)" }).click()]);

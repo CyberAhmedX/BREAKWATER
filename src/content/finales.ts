@@ -1,5 +1,6 @@
 import type { Ticket } from "../engine/types";
 import { ATTACK_CATALOGUE } from "./attack";
+import { caseRng, pickOne, shuffledBy } from "./logs";
 
 // Chapter five, the live incident at the water plant. Everyone faces the same
 // attack, but each team does its own part against the clock. The SOC finale is
@@ -247,136 +248,191 @@ const FINALE_FORENSICS: Ticket = {
 
 // ---------- Pentest: prove the fix, strictly in bounds ----------
 
-const FINALE_PENTEST: Ticket = {
-  id: "t5_pentest",
-  chapter: 5,
-  dept: "pentest",
-  severity: "critical",
-  client: "Halden Water & Light",
-  title: "Prove the door is shut",
-  xp: 120,
-  live: { seconds: 300 },
-  requires: ["track_pentest"],
-  attack: [{ id: "T1133", name: "External Remote Services" }],
-  brief: [
-    "Rook slides one page across: an emergency authorization, signed tonight.",
-    "Once the credential is killed, someone has to prove the boundary is actually shut. You are cleared to test the boundary devices only, with the old credential, tonight. The safety controllers stay out of scope, emergency or not. Check it, keep notes.",
-  ],
-  evidence: [
-    {
-      kind: "note",
-      id: "ev_fn_pt_sit",
-      label: "Situation",
-      title: "Emergency authorization, tonight only",
-      lines: [
-        "After the shared credential is killed, confirm the old login no longer opens the boundary.",
-        "In scope tonight: the boundary segment 10.20.0.0/24 (the firewall and jump hosts).",
-        "Still out of scope, always: the safety controllers on 10.20.5.0/24.",
-        "The attacker's own box in the business network is not yours to touch.",
-      ],
-    },
-    {
-      kind: "scope",
-      id: "ev_fn_pt_scope",
-      label: "Scope checker (emergency authorization)",
-      note: "Tonight's emergency scope. Check an address before you send it anything.",
-      inScope: ["10.20.0.0/24"],
-      outOfScope: ["10.20.5.0/24"],
-    },
-  ],
-  questions: [
-    {
-      type: "scope",
-      id: "q_fn_pt_scope",
-      prompt: "Tick only the addresses tonight's authorization lets you test with the old credential.",
-      evidence: "ev_fn_pt_scope",
-      targets: [
-        { address: "10.20.0.1", what: "the OT boundary firewall" },
-        { address: "10.20.0.9", what: "a boundary jump host" },
-        { address: "10.20.5.10", what: "a chlorine safety controller" },
-        { address: "10.10.9.9", what: "the attacker's jump box, business network" },
-      ],
-      explainRight: "Right. The two boundary addresses on 10.20.0.0/24 are in. The safety controller is out, emergency or not, and the attacker's box is not on tonight's letter at all. Scope is the difference between a report and a flood, even now.",
-      explainWrong: "Only the boundary segment 10.20.0.0/24 is in scope tonight. The safety controller on 10.20.5.0/24 is always off limits, and the attacker's business-network box is not on the authorization.",
-      teaches: "scope",
-      hint: "Check each address against tonight's scope. The safety controllers are never in, whatever the emergency.",
-    },
-  ],
-  closingRight: [
-    "Rook files the emergency letter with the notes, stapled, of course.",
-    "Door proven shut, and you did not touch one thing you were not cleared to. On a night like this, that restraint is the whole job.",
-  ],
-  setFlags: ["finale_ready"],
-};
+export interface ProvedShut {
+  mask: number; // how wide tonight's boundary range is: /24, /25 or /26
+  second: number; // last octet of the second jump host, which may fall outside it
+}
+
+const DEFAULT_SHUT: ProvedShut = { mask: 24, second: 0 };
+
+/** The pentest finale for one run: how wide the emergency scope is, and what falls outside it. */
+export function provedShut(seed: number): ProvedShut {
+  const r = caseRng(seed, "t5_pentest");
+  return { mask: pickOne(r, [24, 25, 26]), second: pickOne(r, [40, 100, 180]) };
+}
+
+export function provedShutTicket(v: ProvedShut): Ticket {
+  const range = `10.20.0.0/${v.mask}`;
+  const size = 2 ** (32 - v.mask);
+  const secondIn = v.second > 0 && v.second < size;
+  const targets = [
+    { address: "10.20.0.1", what: "the OT boundary firewall" },
+    { address: "10.20.0.9", what: "a boundary jump host" },
+    ...(v.second > 0 ? [{ address: `10.20.0.${v.second}`, what: "a second jump host, on the same rack" }] : []),
+    { address: "10.20.5.10", what: "a chlorine safety controller" },
+    { address: "10.10.9.9", what: "the attacker's jump box, business network" },
+  ];
+  const inList = v.second > 0 && secondIn ? "All three boundary addresses" : "The two boundary addresses";
+  const outNote = v.second > 0 && !secondIn ? ` The second jump host, 10.20.0.${v.second}, sits past the end of the range at 10.20.0.${size - 1}, so it is out, whatever rack it is on.` : "";
+  return {
+    id: "t5_pentest",
+    chapter: 5,
+    dept: "pentest",
+    severity: "critical",
+    client: "Halden Water & Light",
+    title: "Prove the door is shut",
+    xp: 120,
+    live: { seconds: 300 },
+    requires: ["track_pentest"],
+    attack: [{ id: "T1133", name: "External Remote Services" }],
+    brief: [
+      "Rook slides one page across: an emergency authorization, signed tonight.",
+      "Once the credential is killed, someone has to prove the boundary is actually shut. You are cleared to test the boundary devices only, with the old credential, tonight. The safety controllers stay out of scope, emergency or not. Check it, keep notes.",
+    ],
+    evidence: [
+      {
+        kind: "note",
+        id: "ev_fn_pt_sit",
+        label: "Situation",
+        title: "Emergency authorization, tonight only",
+        lines: [
+          "After the shared credential is killed, confirm the old login no longer opens the boundary.",
+          v.second > 0 ? `In scope tonight: the boundary range ${range}. It is a range, not a list of boxes, so check each address.` : "In scope tonight: the boundary segment 10.20.0.0/24 (the firewall and jump hosts).",
+          "Still out of scope, always: the safety controllers on 10.20.5.0/24.",
+          "The attacker's own box in the business network is not yours to touch.",
+        ],
+      },
+      {
+        kind: "scope",
+        id: "ev_fn_pt_scope",
+        label: "Scope checker (emergency authorization)",
+        note: "Tonight's emergency scope. Check an address before you send it anything.",
+        inScope: [range],
+        outOfScope: ["10.20.5.0/24"],
+      },
+    ],
+    questions: [
+      {
+        type: "scope",
+        id: "q_fn_pt_scope",
+        prompt: "Tick only the addresses tonight's authorization lets you test with the old credential.",
+        evidence: "ev_fn_pt_scope",
+        targets,
+        explainRight: `Right. ${inList} on ${range} are in.${outNote} The safety controller is out, emergency or not, and the attacker's box is not on tonight's letter at all. Scope is the difference between a report and a flood, even now.`,
+        explainWrong: `Only the boundary segment ${range} is in scope tonight.${outNote} The safety controller on 10.20.5.0/24 is always off limits, and the attacker's business-network box is not on the authorization.`,
+        teaches: "scope",
+        hint: "Check each address against tonight's scope. The safety controllers are never in, whatever the emergency.",
+      },
+    ],
+    closingRight: [
+      "Rook files the emergency letter with the notes, stapled, of course.",
+      "Door proven shut, and you did not touch one thing you were not cleared to. On a night like this, that restraint is the whole job.",
+    ],
+    setFlags: ["finale_ready"],
+  };
+}
+
+const FINALE_PENTEST: Ticket = provedShutTicket(DEFAULT_SHUT);
 
 // ---------- Threat Intel: name the moves, feed the block list ----------
 
-const FINALE_INTEL: Ticket = {
-  id: "t5_intel",
-  chapter: 5,
-  dept: "intel",
-  severity: "critical",
-  client: "Halden Water & Light",
-  title: "Name the moves, call the block",
-  xp: 120,
-  live: { seconds: 300 },
-  requires: ["track_intel"],
-  attack: [
-    { id: "T1078", name: "Valid Accounts" },
-    { id: "T1046", name: "Network Service Discovery" },
-    { id: "T1555", name: "Credentials from Password Stores" },
-  ],
-  brief: [
-    "Juno has the wall and a headset, feeding Mags in real time.",
-    "Tell me what they are doing in ATT&CK terms so the whole team is speaking one language, right now. Get the techniques right and Mags can predict the next move and block ahead of it. Fast.",
-  ],
-  evidence: [
-    {
-      kind: "note",
-      id: "ev_fn_int_sit",
-      label: "Live from the plant",
-      title: "What the attacker is doing, right now",
-      lines: [
-        "They signed in to the jump box using the shared HarborWatch admin login.",
-        "They are scanning the OT boundary to find a way across.",
-        "They are scraping saved logins off the jump box to go further.",
-      ],
-    },
-    {
-      kind: "attackdb",
-      id: "ev_fn_int_db",
-      label: "ATT&CK lookup",
-      techniques: ATTACK_CATALOGUE,
-    },
-  ],
-  questions: [
-    {
-      type: "attack-map",
-      id: "q_fn_int_map",
-      prompt: "Map each move to its ATT&CK technique ID, so Mags can act on it.",
-      items: [
-        { behavior: "Signed in with the shared HarborWatch admin login", answer: ["T1078"] },
-        { behavior: "Scanning the OT boundary for a way across", answer: ["T1046"] },
-        { behavior: "Scraping saved logins off the jump box", answer: ["T1555"] },
-      ],
-      explainRight: "Right. Valid Accounts, Network Service Discovery, Credentials from Password Stores. In one shared language, Mags knows exactly what comes next and can block ahead of it.",
-      explainWrong: "They are T1078 Valid Accounts, T1046 Network Service Discovery, and T1555 Credentials from Password Stores. Search the lookup for a word from each move if you are not sure.",
-      teaches: "attack",
-      hint: "Search the lookup for a word from each move, like scan, saved logins, or shared login.",
-    },
-  ],
-  closingRight: [
-    "Juno relays the last ID and pulls the headset down.",
-    "Named, mapped, and Mags is already blocking the next step. That is intel earning its keep: it changed what the defender did, in time.",
-  ],
-  takeaways: [
-    {
-      file: "attack-mapping.txt",
-      label: "ATT&CK notes (.txt)",
-      text: ["# Breakwater: live incident, ATT&CK mapping", "T1078  Valid Accounts        shared HarborWatch admin login", "T1046  Network Service Discovery  scanning the OT boundary", "T1555  Credentials from Password Stores  scraping saved logins"].join("\n"),
-    },
-  ],
-  setFlags: ["finale_ready"],
-};
+interface Move {
+  id: string;
+  name: string;
+  line: string; // what Juno sees, live
+  behavior: string; // the same move, as the mapping asks about it
+  note: string; // short label for the take-home file
+}
+
+const SIGN_IN: Move = { id: "T1078", name: "Valid Accounts", line: "They signed in to the jump box using the shared HarborWatch admin login.", behavior: "Signed in with the shared HarborWatch admin login", note: "shared HarborWatch admin login" };
+
+// What the attacker does next. Two of these happen in any one run. The first
+// two are both ways of looking around, so a run never has both.
+const NEXT_MOVES: Move[] = [
+  { id: "T1046", name: "Network Service Discovery", line: "They are scanning the OT boundary to find a way across.", behavior: "Scanning the OT boundary for a way across", note: "scanning the OT boundary" },
+  { id: "T1018", name: "Remote System Discovery", line: "They are listing every other machine the jump box can see.", behavior: "Listing the other machines on the network", note: "listing the other machines" },
+  { id: "T1555", name: "Credentials from Password Stores", line: "They are scraping saved logins off the jump box to go further.", behavior: "Scraping saved logins off the jump box", note: "scraping saved logins" },
+  { id: "T1021.002", name: "SMB/Windows Admin Shares", line: "They are reaching the historian server through its Windows file shares.", behavior: "Moving to the historian through its Windows file shares", note: "file shares to the historian" },
+  { id: "T1219", name: "Remote Access Tools", line: "They are driving the jump box with the HarborWatch remote admin tool itself.", behavior: "Driving the jump box with a legitimate remote admin tool", note: "the HarborWatch remote tool" },
+];
+
+export interface NameMoves {
+  moves: Move[]; // the sign-in, then two more
+}
+
+const DEFAULT_MOVES: NameMoves = { moves: [SIGN_IN, NEXT_MOVES[0], NEXT_MOVES[2]] };
+
+/** The intel finale for one run: which moves the attacker makes after signing in. */
+export function nameMoves(seed: number): NameMoves {
+  const r = caseRng(seed, "t5_intel");
+  const look = pickOne(r, [NEXT_MOVES[0], NEXT_MOVES[1], null]);
+  const rest = shuffledBy(r, NEXT_MOVES.slice(2));
+  const next = look ? [look, rest[0]] : [rest[0], rest[1]];
+  return { moves: [SIGN_IN, ...next] };
+}
+
+export function nameMovesTicket(v: NameMoves): Ticket {
+  const isDefault = v === DEFAULT_MOVES;
+  const names = v.moves.map((m) => m.name);
+  return {
+    id: "t5_intel",
+    chapter: 5,
+    dept: "intel",
+    severity: "critical",
+    client: "Halden Water & Light",
+    title: "Name the moves, call the block",
+    xp: 120,
+    live: { seconds: 300 },
+    requires: ["track_intel"],
+    attack: v.moves.map((m) => ({ id: m.id, name: m.name })),
+    brief: [
+      "Juno has the wall and a headset, feeding Mags in real time.",
+      "Tell me what they are doing in ATT&CK terms so the whole team is speaking one language, right now. Get the techniques right and Mags can predict the next move and block ahead of it. Fast.",
+    ],
+    evidence: [
+      {
+        kind: "note",
+        id: "ev_fn_int_sit",
+        label: "Live from the plant",
+        title: "What the attacker is doing, right now",
+        lines: v.moves.map((m) => m.line),
+      },
+      {
+        kind: "attackdb",
+        id: "ev_fn_int_db",
+        label: "ATT&CK lookup",
+        techniques: ATTACK_CATALOGUE,
+      },
+    ],
+    questions: [
+      {
+        type: "attack-map",
+        id: "q_fn_int_map",
+        prompt: "Map each move to its ATT&CK technique ID, so Mags can act on it.",
+        items: v.moves.map((m) => ({ behavior: m.behavior, answer: [m.id] })),
+        explainRight: `Right. ${names.join(", ")}. In one shared language, Mags knows exactly what comes next and can block ahead of it.`,
+        explainWrong: `They are ${v.moves[0].id} ${names[0]}, ${v.moves[1].id} ${names[1]}, and ${v.moves[2].id} ${names[2]}. Search the lookup for a word from each move if you are not sure.`,
+        teaches: "attack",
+        hint: isDefault ? "Search the lookup for a word from each move, like scan, saved logins, or shared login." : "Search the lookup for one plain word from each move, then read the summaries to pick between close ones.",
+      },
+    ],
+    closingRight: [
+      "Juno relays the last ID and pulls the headset down.",
+      "Named, mapped, and Mags is already blocking the next step. That is intel earning its keep: it changed what the defender did, in time.",
+    ],
+    takeaways: [
+      {
+        file: "attack-mapping.txt",
+        label: "ATT&CK notes (.txt)",
+        text: isDefault
+          ? ["# Breakwater: live incident, ATT&CK mapping", "T1078  Valid Accounts        shared HarborWatch admin login", "T1046  Network Service Discovery  scanning the OT boundary", "T1555  Credentials from Password Stores  scraping saved logins"].join("\n")
+          : ["# Breakwater: live incident, ATT&CK mapping", ...v.moves.map((m) => `${m.id}  ${m.name}  ${m.note}`)].join("\n"),
+      },
+    ],
+    setFlags: ["finale_ready"],
+  };
+}
+
+const FINALE_INTEL: Ticket = nameMovesTicket(DEFAULT_MOVES);
 
 export const FINALE_TICKETS: Ticket[] = [FINALE_NETWORK, FINALE_HELPDESK, FINALE_FORENSICS, FINALE_PENTEST, FINALE_INTEL];

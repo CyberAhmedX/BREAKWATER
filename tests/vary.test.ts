@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { clinicVpnEvents, schoolDnsLog } from "../src/content/logs";
-import { withRunData } from "../src/content/vary";
+import { VARYING_CASES, withRunData } from "../src/content/vary";
 import { TICKETS } from "../src/content/tickets";
 import { runSolution } from "../src/engine/solution";
 import { normalizeAnswer } from "../src/engine/answer";
@@ -60,12 +60,12 @@ describe("seeded school DNS generator", () => {
 
 describe("withRunData resolver", () => {
   it("leaves tickets without run data untouched", () => {
-    const other = TICKETS.find((t) => t.id === "tr_network")!;
+    const other = TICKETS.find((t) => t.id === "t5_network")!;
     expect(withRunData(other, 123)).toBe(other);
   });
 
   it("rebuilds varying cases so every solution still finds its answer", () => {
-    for (const id of ["tr_soc", "t2_school_dns"]) {
+    for (const id of VARYING_CASES) {
       const base = TICKETS.find((t) => t.id === id)!;
       for (const seed of SEEDS) {
         const t = withRunData(base, seed);
@@ -77,6 +77,41 @@ describe("withRunData resolver", () => {
           expect(normalizeAnswer(r.out), `${id}/${seed}/${q.id}`).toContain(normalizeAnswer(q.answer[0]));
         }
       }
+    }
+  });
+
+  it("every varying case is deterministic, keeps its identity, and really does vary", () => {
+    expect(VARYING_CASES.length).toBeGreaterThanOrEqual(10);
+    for (const id of VARYING_CASES) {
+      const base = TICKETS.find((t) => t.id === id)!;
+      expect(base, id).toBeDefined();
+      const seen = new Set<string>();
+      for (const seed of [...SEEDS, 2, 3, 4, 5, 6, 7, 8, 9]) {
+        const t = withRunData(base, seed);
+        expect(JSON.stringify(withRunData(base, seed)), `${id}/${seed}`).toBe(JSON.stringify(t));
+        // what the story and the save depend on never changes
+        expect(t.id).toBe(base.id);
+        expect(t.title).toBe(base.title);
+        expect(t.xp).toBe(base.xp);
+        expect(t.requires).toEqual(base.requires);
+        expect(t.setFlags).toEqual(base.setFlags);
+        expect(t.questions.map((q) => q.id)).toEqual(base.questions.map((q) => q.id));
+        seen.add(JSON.stringify(t));
+      }
+      expect(seen.size, `${id} varies`).toBeGreaterThan(1);
+    }
+  });
+
+  it("the answers themselves change between runs, not just the wording", () => {
+    const answers = (id: string, seed: number): string =>
+      JSON.stringify(
+        withRunData(TICKETS.find((t) => t.id === id)!, seed).questions.map((q) =>
+          q.type === "typed" || q.type === "iocs" || q.type === "spot" ? q.answer : q.type === "rules" ? q.solution : q.type === "scope" ? q.targets : q.type === "attack-map" ? q.items : q.type === "merge" ? withRunData(TICKETS.find((t) => t.id === id)!, seed).evidence.filter((e) => e.kind === "merge") : null,
+        ),
+      );
+    for (const id of VARYING_CASES) {
+      const seen = new Set(Array.from({ length: 40 }, (_, seed) => answers(id, seed + 1)));
+      expect(seen.size, `${id}: answers vary`).toBeGreaterThan(1);
     }
   });
 });

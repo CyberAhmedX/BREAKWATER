@@ -308,3 +308,14 @@ describe("live clock", () => {
     expect(liveSeconds(ticket, s, false)).toBe(210);
   });
 });
+
+describe("run seed", () => {
+  it("a save with no seed gets one at load, and keeps it on the next load", () => {
+    const old = { ...freshSave(), playerName: "Old" } as Partial<ReturnType<typeof freshSave>>;
+    delete old.seed;
+    localStorage.setItem("breakwater.save.v1", JSON.stringify(old));
+    const first = load();
+    expect(Number.isFinite(first.seed)).toBe(true);
+    expect(load().seed).toBe(first.seed);
+  });
+});

@@ -1,25 +1,11 @@
 import type { Ticket } from "../engine/types";
-import { clinicVpnEvents, type ClinicVpn } from "./logs";
+import { clinicVpnEvents, caseRng, pickOne, between, shuffledBy, type ClinicVpn } from "./logs";
 import { sha256 } from "../engine/sha256";
 
 // The static default for the SOC spray case. A real run rebuilds it from the
 // run's seed (see content/vary.ts); this keeps the catalogue and tests stable.
 const DEFAULT_SEED = 20260310;
 const CLINIC_VPN = clinicVpnEvents(DEFAULT_SEED);
-
-// Passive DNS for the leak-site case. The post gives only tollgate.test, but
-// that name shares an address with the crew's payment portal, so pivoting the
-// address turns one indicator into the whole set. All names and addresses are
-// fictional (reserved .test / documentation ranges).
-const TOLL_PASSIVE = {
-  records: [
-    { domain: "tollgate.test", ip: "203.0.113.90", firstSeen: "2026-02-18", lastSeen: "2026-03-14", note: "contact page in the leak post" },
-    { domain: "paywall-tollkeepers.test", ip: "203.0.113.90", firstSeen: "2026-02-20", lastSeen: "2026-03-14", note: "payment portal, not named in the post" },
-    { domain: "status-tollgate.test", ip: "203.0.113.90", firstSeen: "2026-03-01", lastSeen: "2026-03-14" },
-    { domain: "tollgate.test", ip: "198.51.100.66", firstSeen: "2026-01-10", lastSeen: "2026-02-17", note: "parked, before the campaign" },
-    { domain: "reading-portal.example", ip: "198.51.100.66", firstSeen: "2024-05-01", lastSeen: "2026-03-14", note: "a real school supplier, unrelated" },
-  ],
-};
 
 // Files on the forensic workstation for the Brightloaf USB case. Each holds one
 // byte per character, so xxd shows real headers: MZ for the program, %PDF for
@@ -180,12 +166,52 @@ export function socSprayTicket(vpn: ClinicVpn): Ticket {
   };
 }
 
-export const TRACK_TICKETS: Ticket[] = [
-  // ------------------------------------------------------------------ SOC
-  socSprayTicket(CLINIC_VPN),
+// ------------------------------------------------------------------ Network
 
-  // ------------------------------------------------------------------ Network
-  {
+interface BannedService {
+  port: number;
+  policy: string; // the policy line that bans it
+  short: string;
+  flow: string; // what the test traffic is called
+}
+
+// One thing guests may not do on the internet, besides using an outside DNS
+// server. Which one the harbor's policy bans changes between runs.
+const BANNED: BannedService[] = [
+  { port: 445, policy: "Except file sharing (SMB, TCP 445). It never leaves the building.", short: "SMB", flow: "File sharing out to the internet" },
+  { port: 25, policy: "Except sending mail directly (SMTP, TCP 25). Visitors use webmail.", short: "SMTP", flow: "Mail sent straight to an outside mail server" },
+  { port: 23, policy: "Except Telnet (TCP 23). Nothing a visitor needs still speaks it.", short: "Telnet", flow: "Telnet out to the internet" },
+];
+
+export interface GuestWifi {
+  laptop: string; // the visitor's laptop that is where it should not be
+  server: string; // the staff file server it copies from
+  banned: BannedService;
+  rowOrder: number[]; // the order the flow summary lists its rows in
+}
+
+const DEFAULT_GUEST: GuestWifi = { laptop: "192.168.50.41", server: "10.10.4.12", banned: BANNED[0], rowOrder: [0, 1, 2, 3, 4] };
+
+/** The guest wifi case for one run: which laptop, which server, which banned service. */
+export function guestWifi(seed: number): GuestWifi {
+  const r = caseRng(seed, "tr_network");
+  return {
+    laptop: `192.168.50.${pickOne(r, [41, 57, 63, 88, 112])}`,
+    server: `10.10.4.${pickOne(r, [12, 18, 22, 35])}`,
+    banned: pickOne(r, BANNED),
+    rowOrder: shuffledBy(r, [0, 1, 2, 3, 4]),
+  };
+}
+
+export function guestWifiTicket(v: GuestWifi): Ticket {
+  const flowRows = [
+    { src: "192.168.50.23", dst: "internet (various)", port: "443/tcp", bytes: "310 MB" },
+    { src: v.laptop, dst: "internet (various)", port: "443/tcp", bytes: "95 MB" },
+    { src: v.laptop, dst: `${v.server} (staff file server)`, port: "445/tcp", bytes: "1.2 GB" },
+    { src: v.laptop, dst: "10.10.0.0/16 (every address)", port: "many", bytes: "small" },
+    { src: "192.168.50.23", dst: "192.168.50.1 (guest gateway)", port: "53/udp", bytes: "2 MB" },
+  ];
+  return {
     id: "tr_network",
     chapter: 2,
     dept: "network",
@@ -208,13 +234,7 @@ export const TRACK_TICKETS: Ticket[] = [
         id: "ev_guest_flow",
         label: "Flows from the guest wifi, last hour",
         caption: "Guest network: 192.168.50.0/24. Staff network: 10.10.0.0/16.",
-        rows: [
-          { src: "192.168.50.23", dst: "internet (various)", port: "443/tcp", bytes: "310 MB" },
-          { src: "192.168.50.41", dst: "internet (various)", port: "443/tcp", bytes: "95 MB" },
-          { src: "192.168.50.41", dst: "10.10.4.12 (staff file server)", port: "445/tcp", bytes: "1.2 GB" },
-          { src: "192.168.50.41", dst: "10.10.0.0/16 (every address)", port: "many", bytes: "small" },
-          { src: "192.168.50.23", dst: "192.168.50.1 (guest gateway)", port: "53/udp", bytes: "2 MB" },
-        ],
+        rows: v.rowOrder.map((i) => flowRows[i]),
       },
       {
         kind: "note",
@@ -223,7 +243,7 @@ export const TRACK_TICKETS: Ticket[] = [
         title: "Signed off by the Harbor Authority",
         lines: [
           "Guests can reach the internet.",
-          "Except file sharing (SMB, TCP 445). It never leaves the building.",
+          v.banned.policy,
           "Guests look up names through the guest gateway, 192.168.50.1, and never an outside DNS server.",
           "Guests never reach the staff network, the crane and ferry controls, or anything else inside. Visitors print on the guest printer, which sits on the guest network itself.",
         ],
@@ -250,11 +270,11 @@ export const TRACK_TICKETS: Ticket[] = [
           { what: "Visitor laptop browsing the web", src: "192.168.50.23", dst: "198.51.100.200", port: 443, proto: "tcp", want: "allow" },
           { what: "Visitor phone on a video call", src: "192.168.50.31", dst: "203.0.113.50", port: 3478, proto: "udp", want: "allow" },
           { what: "Name lookups through the guest gateway", src: "192.168.50.23", dst: "192.168.50.1", port: 53, proto: "udp", want: "allow" },
-          { what: "Copying from the staff file server", src: "192.168.50.41", dst: "10.10.4.12", port: 445, proto: "tcp", want: "deny" },
-          { what: "Remote desktop to a staff PC", src: "192.168.50.41", dst: "10.10.4.30", port: 3389, proto: "tcp", want: "deny" },
+          { what: "Copying from the staff file server", src: v.laptop, dst: v.server, port: 445, proto: "tcp", want: "deny" },
+          { what: "Remote desktop to a staff PC", src: v.laptop, dst: "10.10.4.30", port: 3389, proto: "tcp", want: "deny" },
           { what: "Printing to the staff printer", src: "192.168.50.20", dst: "10.10.2.5", port: 9100, proto: "tcp", want: "deny" },
-          { what: "Talking to a crane controller", src: "192.168.50.41", dst: "10.20.0.15", port: 502, proto: "tcp", want: "deny" },
-          { what: "File sharing out to the internet", src: "192.168.50.41", dst: "198.51.100.77", port: 445, proto: "tcp", want: "deny" },
+          { what: "Talking to a crane controller", src: v.laptop, dst: "10.20.0.15", port: 502, proto: "tcp", want: "deny" },
+          { what: v.banned.flow, src: v.laptop, dst: "198.51.100.77", port: v.banned.port, proto: "tcp", want: "deny" },
           { what: "Name lookups straight to an outside server", src: "192.168.50.23", dst: "198.51.100.53", port: 53, proto: "udp", want: "deny" },
         ],
       },
@@ -265,9 +285,9 @@ export const TRACK_TICKETS: Ticket[] = [
         id: "q_guest_spot",
         prompt: "Click the flow that is moving staff data to a visitor's laptop.",
         evidence: "ev_guest_flow",
-        answer: ["r2"],
+        answer: [`r${v.rowOrder.indexOf(2)}`],
         explainRight: "Right. 1.2 GB from the staff file server to a laptop on the guest wifi. Nothing on the guest network should reach that server, let alone copy from it.",
-        explainWrong: "It is the 1.2 GB from the staff file server, 10.10.4.12, over port 445. The scan is worrying too, but that flow is data actually leaving.",
+        explainWrong: `It is the 1.2 GB from the staff file server, ${v.server}, over port 445. The scan is worrying too, but that flow is data actually leaving.`,
         teaches: "segmentation",
         hint: "Some flows stay on the guest side or go out to the internet. One pulls a lot of data from somewhere a visitor has no business being.",
       },
@@ -280,12 +300,12 @@ export const TRACK_TICKETS: Ticket[] = [
           "# Harbor office: guest wifi rules (VLAN 50)",
           "allow from guest to guest-gw port 53 proto udp",
           "deny from guest to any port 53",
-          "deny from guest to internet port 445 proto tcp",
+          `deny from guest to internet port ${v.banned.port} proto tcp`,
           "allow from guest to internet",
           "deny from any to any",
         ].join("\n"),
-        explainRight: "Right. The leak was the guest-to-staff rule, added so visitors could print. And because the first match wins, the blocks for SMB and outside DNS have to sit above the broad internet allow, or they never get a say.",
-        explainWrong: "Remove the guest-to-staff rule, then put the blocks for SMB out and outside DNS above the internet allow. The first match wins, so a block placed below a broad allow never runs.",
+        explainRight: `Right. The leak was the guest-to-staff rule, added so visitors could print. And because the first match wins, the blocks for ${v.banned.short} and outside DNS have to sit above the broad internet allow, or they never get a say.`,
+        explainWrong: `Remove the guest-to-staff rule, then put the blocks for ${v.banned.short} out and outside DNS above the internet allow. The first match wins, so a block placed below a broad allow never runs.`,
         teaches: "segmentation",
         hint: "Delete the rule that opens the staff network. For the two things guests may not do on the internet, remember that the first matching rule wins.",
       },
@@ -312,10 +332,57 @@ export const TRACK_TICKETS: Ticket[] = [
       "Not DNS. I will allow it. Rules like that one are how small problems turn into town problems. Nice catch.",
     ],
     setFlags: ["guest_case"],
-  },
+  };
+}
 
-  // ------------------------------------------------------------------ Help Desk
-  {
+// ------------------------------------------------------------------ Help Desk
+
+export interface MfaFatigue {
+  rows: string[][]; // the MFA log
+  ruleRow: number; // which row is the mail rule
+  signInAt: string;
+  imapAt: string;
+  ruleAt: string;
+  attackerRuleFirst: boolean; // whether the attacker's rule is listed above hers
+}
+
+const ATTACKER_MFA_IP = "203.0.113.90";
+
+function mfaLog(prompts: [string, string][], approvedAt: number): Omit<MfaFatigue, "attackerRuleFirst"> {
+  const hm = (m: number): string => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+  const rows: string[][] = [
+    ["02:41", "Password accepted", ATTACKER_MFA_IP, "MFA prompt sent"],
+    ...prompts.map(([time, result]) => [time, "MFA prompt", "-", result]),
+    [hm(approvedAt), "MFA prompt", "-", "Approved"],
+    [hm(approvedAt + 1), "New sign-in", ATTACKER_MFA_IP, "Success"],
+    [hm(approvedAt + 3), "Mail rule added", ATTACKER_MFA_IP, "Success"],
+    ["08:02", "New sign-in", "198.51.100.12", "Success"],
+  ];
+  return { rows, ruleRow: rows.length - 2, signInAt: hm(approvedAt + 1), imapAt: hm(approvedAt + 2), ruleAt: hm(approvedAt + 3) };
+}
+
+const DEFAULT_MFA: MfaFatigue = {
+  ...mfaLog([["02:41", "Denied"], ["02:44", "No answer"], ["02:52", "Denied"], ["03:05", "No answer"]], 3 * 60 + 17),
+  attackerRuleFirst: false,
+};
+
+/** The MFA fatigue case for one run: how long she held out, and where the bad rule sits. */
+export function mfaFatigue(seed: number): MfaFatigue {
+  const r = caseRng(seed, "tr_helpdesk");
+  const n = between(r, 2, 5); // prompts she turned down or slept through, after the first
+  const approvedAt = 3 * 60 + between(r, 2, 24);
+  const first = 2 * 60 + 42;
+  const gap = Math.max(1, Math.floor((approvedAt - 1 - first) / n));
+  const hm = (m: number): string => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+  const prompts: [string, string][] = [["02:41", "Denied"]];
+  for (let i = 0; i < n; i++) prompts.push([hm(first + i * gap + between(r, 0, gap - 1)), r() < 0.5 ? "Denied" : "No answer"]);
+  return { ...mfaLog(prompts, approvedAt), attackerRuleFirst: r() < 0.5 };
+}
+
+export function mfaFatigueTicket(v: MfaFatigue): Ticket {
+  const herRule = { id: "r1", name: "Newsletters", summary: "From newsletters@reading-portal.example: move to the Newsletters folder." };
+  const badRule = { id: "r2", name: ".", summary: "If the subject or body contains invoice, payroll or bank: forward to accounts-team@mailbox-portal.test, mark as read, move to RSS Feeds." };
+  return {
     id: "tr_helpdesk",
     chapter: 2,
     dept: "helpdesk",
@@ -339,17 +406,7 @@ export const TRACK_TICKETS: Ticket[] = [
         label: "MFA log: principal@halden-schools.example",
         source: "Identity provider sign-in and MFA log",
         columns: ["Time", "Event", "Source IP", "Result"],
-        rows: [
-          ["02:41", "Password accepted", "203.0.113.90", "MFA prompt sent"],
-          ["02:41", "MFA prompt", "-", "Denied"],
-          ["02:44", "MFA prompt", "-", "No answer"],
-          ["02:52", "MFA prompt", "-", "Denied"],
-          ["03:05", "MFA prompt", "-", "No answer"],
-          ["03:17", "MFA prompt", "-", "Approved"],
-          ["03:18", "New sign-in", "203.0.113.90", "Success"],
-          ["03:20", "Mail rule added", "203.0.113.90", "Success"],
-          ["08:02", "New sign-in", "198.51.100.12", "Success"],
-        ],
+        rows: v.rows,
       },
       {
         kind: "chat",
@@ -366,7 +423,7 @@ export const TRACK_TICKETS: Ticket[] = [
         id: "ev_mfa_admin",
         label: "School admin center",
         tenant: "Halden Unified School District",
-        intruder: { upn: "principal@halden-schools.example", ip: "203.0.113.90" },
+        intruder: { upn: "principal@halden-schools.example", ip: ATTACKER_MFA_IP },
         users: [
           {
             upn: "principal@halden-schools.example",
@@ -375,13 +432,10 @@ export const TRACK_TICKETS: Ticket[] = [
             mfa: "push",
             sessions: [
               { id: "s1", device: "Phone, mail app", ip: "198.51.100.12", place: "Port Halden", since: "08:02" },
-              { id: "s2", device: "Browser on Windows", ip: "203.0.113.90", place: "Unknown (hosting provider)", since: "03:18" },
-              { id: "s3", device: "Mail client (IMAP)", ip: "203.0.113.90", place: "Unknown (hosting provider)", since: "03:19" },
+              { id: "s2", device: "Browser on Windows", ip: ATTACKER_MFA_IP, place: "Unknown (hosting provider)", since: v.signInAt },
+              { id: "s3", device: "Mail client (IMAP)", ip: ATTACKER_MFA_IP, place: "Unknown (hosting provider)", since: v.imapAt },
             ],
-            rules: [
-              { id: "r1", name: "Newsletters", summary: "From newsletters@reading-portal.example: move to the Newsletters folder." },
-              { id: "r2", name: ".", summary: "If the subject or body contains invoice, payroll or bank: forward to accounts-team@mailbox-portal.test, mark as read, move to RSS Feeds." },
-            ],
+            rules: v.attackerRuleFirst ? [badRule, herRule] : [herRule, badRule],
           },
           {
             upn: "m.ortega@halden-schools.example",
@@ -424,9 +478,9 @@ export const TRACK_TICKETS: Ticket[] = [
         id: "q_mfa_spot",
         prompt: "Click the line that shows what the attacker did once inside.",
         evidence: "ev_mfa_log",
-        answer: ["r7"],
+        answer: [`r${v.ruleRow}`],
         explainRight: "Right. A mail rule, two minutes after getting in. The same trick as the Brightloaf mailbox: hide or forward mail so the owner never sees it.",
-        explainWrong: "It is the mail rule added at 03:20 from 203.0.113.90. The sign-ins only got them in. The rule is what they did with the access.",
+        explainWrong: `It is the mail rule added at ${v.ruleAt} from ${ATTACKER_MFA_IP}. The sign-ins only got them in. The rule is what they did with the access.`,
         teaches: "forwarding-rule",
         hint: "The approval and the sign-in are how they got in. Look at what comes after.",
       },
@@ -478,10 +532,33 @@ export const TRACK_TICKETS: Ticket[] = [
       "You were patient with her and firm with the account. That is the whole help desk job in one sentence.",
     ],
     setFlags: ["mfa_case"],
-  },
+  };
+}
 
-  // ------------------------------------------------------------------ Forensics
-  {
+// ------------------------------------------------------------------ Forensics
+
+export interface UsbCase {
+  stickAt: number; // when the stick went in, seconds after midnight UTC
+  fwOffset: number; // the firewall appliance's clock, hours from UTC
+}
+
+const DEFAULT_USB: UsbCase = { stickAt: 7 * 3600 + 51 * 60 + 7, fwOffset: 0 };
+
+/** The USB case for one run: when it happened, and what clock the firewall keeps. */
+export function usbCase(seed: number): UsbCase {
+  const r = caseRng(seed, "tr_forensics");
+  return { stickAt: 7 * 3600 + between(r, 42, 55) * 60 + between(r, 3, 40), fwOffset: pickOne(r, [0, 0, -2]) };
+}
+
+export function usbTicket(v: UsbCase): Ticket {
+  const hms = (s: number): string => [Math.floor(s / 3600) % 24, Math.floor(s / 60) % 60, s % 60].map((n) => String(n).padStart(2, "0")).join(":");
+  const hm = (s: number): string => hms(s).slice(0, 5);
+  const local = (s: number): string => hms(s + 3600); // the PC keeps Port Halden time, UTC+1
+  const fw = (s: number): string => hms(s + v.fwOffset * 3600);
+  const run = v.stickAt + 67;
+  const beacon = run + 48;
+  const fwUtc = v.fwOffset === 0;
+  return {
     id: "tr_forensics",
     chapter: 2,
     dept: "forensics",
@@ -517,7 +594,7 @@ export const TRACK_TICKETS: Ticket[] = [
             name: "USB device history",
             note: "From the PC's registry. The PC's clock is set to Port Halden local time.",
             offset: 1,
-            events: [{ time: "08:51:07", text: "USB stick INVOICES first connected" }],
+            events: [{ time: local(v.stickAt), text: "USB stick INVOICES first connected" }],
           },
           {
             id: "win",
@@ -525,23 +602,23 @@ export const TRACK_TICKETS: Ticket[] = [
             note: "Exported from BAKERY-PC-01 (10.30.1.15) by Brightloaf's IT. Times are as the PC showed them.",
             offset: 1,
             events: [
-              { time: "08:52:14", text: "Program started from the stick: E:\\Invoice_March.pdf.exe" },
-              { time: "08:52:16", text: "Run key added: InvoiceViewer, so it starts at every sign-in" },
-              { time: "09:30:40", text: "USB stick INVOICES removed" },
+              { time: local(run), text: "Program started from the stick: E:\\Invoice_March.pdf.exe" },
+              { time: local(run + 2), text: "Run key added: InvoiceViewer, so it starts at every sign-in" },
+              { time: local(v.stickAt + 39 * 60 + 33), text: "USB stick INVOICES removed" },
             ],
           },
           {
             id: "fw",
             name: "Bakery firewall",
-            note: "From the firewall appliance, which logs in UTC like most network gear.",
-            offset: 0,
+            note: fwUtc ? "From the firewall appliance, which logs in UTC like most network gear." : "From the firewall appliance. Nobody ever set its clock, so it still keeps its factory time zone, UTC-2.",
+            offset: v.fwOffset,
             events: [
-              { time: "07:40:11", text: "10.30.1.15 to 198.51.100.80:443, till software update, allowed" },
-              { time: "07:53:02", text: "10.30.1.15 to 203.0.113.77:443, allowed" },
-              { time: "07:58:02", text: "10.30.1.15 to 203.0.113.77:443, allowed" },
-              { time: "08:03:03", text: "10.30.1.15 to 203.0.113.77:443, allowed" },
-              { time: "08:33:02", text: "10.30.1.15 to 203.0.113.77:443, allowed" },
-              { time: "08:38:02", text: "10.30.1.15 to 203.0.113.77:443, allowed" },
+              { time: fw(run - 12 * 60 - 3), text: "10.30.1.15 to 198.51.100.80:443, till software update, allowed" },
+              { time: fw(beacon), text: "10.30.1.15 to 203.0.113.77:443, allowed" },
+              { time: fw(beacon + 300), text: "10.30.1.15 to 203.0.113.77:443, allowed" },
+              { time: fw(beacon + 601), text: "10.30.1.15 to 203.0.113.77:443, allowed" },
+              { time: fw(beacon + 2400), text: "10.30.1.15 to 203.0.113.77:443, allowed" },
+              { time: fw(beacon + 2700), text: "10.30.1.15 to 203.0.113.77:443, allowed" },
             ],
           },
         ],
@@ -577,8 +654,8 @@ export const TRACK_TICKETS: Ticket[] = [
         id: "q_usb_clock",
         prompt: "Set each log's clock so the merged timeline tells the true story.",
         evidence: "ev_usb_clock",
-        explainRight: "Right. The PC logs in local time, UTC+1, and the firewall in UTC. Merged properly, the stick goes in at 07:51 UTC, the program runs a minute later and adds itself to startup, and it calls 203.0.113.77 at 07:53. It keeps calling every five minutes after the stick is pulled out, because the Run key starts it again.",
-        explainWrong: "The PC's two logs are in local time, UTC+1, so they move back an hour. The firewall already logs in UTC. Leave them all unadjusted and the program calls home an hour before the stick was plugged in, which is the tell that a clock is wrong.",
+        explainRight: `Right. The PC logs in local time, UTC+1, and the firewall in ${fwUtc ? "UTC" : "UTC-2"}. Merged properly, the stick goes in at ${hm(v.stickAt)} UTC, the program runs a minute later and adds itself to startup, and it calls 203.0.113.77 at ${hm(beacon)}. It keeps calling every five minutes after the stick is pulled out, because the Run key starts it again.`,
+        explainWrong: `The PC's two logs are in local time, UTC+1, so they move back an hour. ${fwUtc ? "The firewall already logs in UTC." : "The firewall keeps UTC-2, so its lines move forward two hours."} Leave them all unadjusted and the program calls home ${fwUtc ? "an hour" : "three hours"} before the stick was plugged in, which is the tell that a clock is wrong.`,
         teaches: "time-zones",
         hint: "Read each log's note about its own clock. And remember that an effect never comes before its cause.",
       },
@@ -605,10 +682,34 @@ export const TRACK_TICKETS: Ticket[] = [
       "Good. The hash told us which copy is true, and the true copy told us the rest. Notice the address. 203.0.113.77 again. Somebody is very attached to it.",
     ],
     setFlags: ["usb_case"],
-  },
+  };
+}
 
-  // ------------------------------------------------------------------ Pentest
-  {
+// ------------------------------------------------------------------ Pentest
+
+export interface ExternalTest {
+  base: number; // last octet where the sixteen in-scope addresses start
+  rowOrder: number[]; // the order the scan lists its findings in
+}
+
+const DEFAULT_EXTERNAL: ExternalTest = { base: 64, rowOrder: [0, 1, 2, 3, 4] };
+
+/** The external test for one run: which block of addresses the letter covers. */
+export function externalTest(seed: number): ExternalTest {
+  const r = caseRng(seed, "tr_pentest");
+  return { base: pickOne(r, [32, 64, 96, 160]), rowOrder: shuffledBy(r, [0, 1, 2, 3, 4]) };
+}
+
+export function externalTestTicket(v: ExternalTest): Ticket {
+  const at = (n: number): string => `198.51.100.${v.base + n}`;
+  const scanRows = [
+    [at(2), "443", "Public website", "TLS current, nothing odd"],
+    [at(3), "22", "SSH", "Key login only, passwords refused"],
+    [at(6), "8443", "Camera recorder admin page", "Default login admin/admin accepted"],
+    [at(7), "5938", "HarborWatch remote agent", "Login page open to the internet"],
+    [at(10), "80", "Website", "Redirects to 443"],
+  ];
+  return {
     id: "tr_pentest",
     chapter: 2,
     dept: "pentest",
@@ -632,7 +733,7 @@ export const TRACK_TICKETS: Ticket[] = [
         label: "Authorization letter",
         title: "Halden Water & Light external test",
         lines: [
-          "IN SCOPE: public addresses 198.51.100.64 to 198.51.100.79, tested from the internet",
+          `IN SCOPE: public addresses ${at(0)} to ${at(15)}, tested from the internet`,
           "IN SCOPE: checking login pages found there for default or missing passwords",
           "OUT OF SCOPE: anything inside the plant, and any credentials not found during this test",
           "Critical findings: call the plant's IT lead the same day. Do not wait for the report.",
@@ -643,22 +744,16 @@ export const TRACK_TICKETS: Ticket[] = [
         id: "ev_ext_checker",
         label: "Scope checker: Water & Light external test",
         note: "From the authorization letter. Check an address before you send it a single packet, or type a range to see what it covers.",
-        inScope: ["198.51.100.64/28"],
+        inScope: [`${at(0)}/28`],
         outOfScope: ["10.0.0.0/8"],
       },
       {
         kind: "log",
         id: "ev_ext_scan",
         label: "External scan results",
-        source: "Port scan and service check, 198.51.100.64/28",
+        source: `Port scan and service check, ${at(0)}/28`,
         columns: ["Address", "Port", "Service", "Note"],
-        rows: [
-          ["198.51.100.66", "443", "Public website", "TLS current, nothing odd"],
-          ["198.51.100.67", "22", "SSH", "Key login only, passwords refused"],
-          ["198.51.100.70", "8443", "Camera recorder admin page", "Default login admin/admin accepted"],
-          ["198.51.100.71", "5938", "HarborWatch remote agent", "Login page open to the internet"],
-          ["198.51.100.74", "80", "Website", "Redirects to 443"],
-        ],
+        rows: v.rowOrder.map((i) => scanRows[i]),
       },
     ],
     questions: [
@@ -668,15 +763,15 @@ export const TRACK_TICKETS: Ticket[] = [
         prompt: "The scanner also turned up some neighbours. Which of these targets does the letter let you test?",
         evidence: "ev_ext_checker",
         targets: [
-          { address: "198.51.100.66", what: "public website" },
-          { address: "198.51.100.70", what: "camera recorder admin page" },
-          { address: "198.51.100.79", what: "a mail relay answering on port 25" },
-          { address: "198.51.100.80", what: "a billing portal with the plant's logo" },
-          { address: "198.51.100.63", what: "an unnamed server one address below the range" },
+          { address: at(2), what: "public website" },
+          { address: at(6), what: "camera recorder admin page" },
+          { address: at(15), what: "a mail relay answering on port 25" },
+          { address: at(16), what: "a billing portal with the plant's logo" },
+          { address: at(-1), what: "an unnamed server one address below the range" },
           { address: "10.20.4.7", what: "an internal address leaked in an error page" },
         ],
-        explainRight: "Right. A /28 is sixteen addresses, .64 to .79, so .79 is in and .80 and .63 are not, logo or no logo. The internal address is inside the plant, which the letter rules out however you came to know it.",
-        explainWrong: "198.51.100.64/28 covers .64 to .79 and nothing else. .80 and .63 sit just outside it, and a plant logo on a page does not put it in scope. 10.20.4.7 is inside the plant, which the letter excludes.",
+        explainRight: `Right. A /28 is sixteen addresses, .${v.base} to .${v.base + 15}, so .${v.base + 15} is in and .${v.base + 16} and .${v.base - 1} are not, logo or no logo. The internal address is inside the plant, which the letter rules out however you came to know it.`,
+        explainWrong: `${at(0)}/28 covers .${v.base} to .${v.base + 15} and nothing else. .${v.base + 16} and .${v.base - 1} sit just outside it, and a plant logo on a page does not put it in scope. 10.20.4.7 is inside the plant, which the letter excludes.`,
         teaches: "scope",
         hint: "Type the range into the scope checker to see where it starts and ends, then check each address.",
       },
@@ -685,7 +780,7 @@ export const TRACK_TICKETS: Ticket[] = [
         id: "q_ext_spot",
         prompt: "Click the finding that lets anyone in right now, with no skill at all.",
         evidence: "ev_ext_scan",
-        answer: ["r2"],
+        answer: [`r${v.rowOrder.indexOf(2)}`],
         explainRight: "Right. A camera recorder that accepts admin/admin from the internet. Anyone who finds it is in today, no hacking needed.",
         explainWrong: "It is the camera recorder on port 8443. A default login that works from the internet means anyone can walk in right now.",
         teaches: "default-credentials",
@@ -746,10 +841,44 @@ export const TRACK_TICKETS: Ticket[] = [
       "Good test. You found the open door, and you did not walk through the one you had a key for. That second part is the job. Also, somebody should ask why HarborWatch faces the internet at the water plant. I am going to ask.",
     ],
     setFlags: ["ext_case"],
-  },
+  };
+}
 
-  // ------------------------------------------------------------------ Threat Intel
-  {
+// ------------------------------------------------------------------ Threat Intel
+
+export interface LeakSite {
+  portal: string; // the crew's payment portal, never named in the post
+  status: string; // a third name on the same address
+  parkedIp: string; // where tollgate.test sat before the campaign, beside a real supplier
+}
+
+const DEFAULT_LEAK: LeakSite = { portal: "paywall-tollkeepers.test", status: "status-tollgate.test", parkedIp: "198.51.100.66" };
+
+/** The leak site case for one run: what else sits on the crew's address. */
+export function leakSite(seed: number): LeakSite {
+  const r = caseRng(seed, "tr_intel");
+  return {
+    portal: pickOne(r, ["paywall-tollkeepers.test", "pay-tollgate.test", "tollbooth-pay.test"]),
+    status: pickOne(r, ["status-tollgate.test", "mirror-tollgate.test", "news-tollgate.test"]),
+    parkedIp: `198.51.100.${between(r, 60, 69)}`,
+  };
+}
+
+// Passive DNS for the leak-site case. The post gives only tollgate.test, but
+// that name shares an address with the crew's payment portal, so pivoting the
+// address turns one indicator into the whole set. All names and addresses are
+// fictional (reserved .test / documentation ranges).
+export function leakSiteTicket(v: LeakSite): Ticket {
+  const passive = {
+    records: [
+      { domain: "tollgate.test", ip: "203.0.113.90", firstSeen: "2026-02-18", lastSeen: "2026-03-14", note: "contact page in the leak post" },
+      { domain: v.portal, ip: "203.0.113.90", firstSeen: "2026-02-20", lastSeen: "2026-03-14", note: "payment portal, not named in the post" },
+      { domain: v.status, ip: "203.0.113.90", firstSeen: "2026-03-01", lastSeen: "2026-03-14" },
+      { domain: "tollgate.test", ip: v.parkedIp, firstSeen: "2026-01-10", lastSeen: "2026-02-17", note: "parked, before the campaign" },
+      { domain: "reading-portal.example", ip: v.parkedIp, firstSeen: "2024-05-01", lastSeen: "2026-03-14", note: "a real school supplier, unrelated" },
+    ],
+  };
+  return {
     id: "tr_intel",
     chapter: 2,
     dept: "intel",
@@ -806,7 +935,7 @@ export const TRACK_TICKETS: Ticket[] = [
         label: "Passive DNS board",
         caption: "Which names pointed at which addresses, and when. Search a name or an address, and click any result to pivot.",
         start: "tollgate.test",
-        db: TOLL_PASSIVE,
+        db: passive,
       },
     ],
     questions: [
@@ -841,10 +970,10 @@ export const TRACK_TICKETS: Ticket[] = [
         type: "typed",
         id: "q_leak_pivot",
         prompt: "The post names one domain, tollgate.test. On the passive DNS board, pivot from it to the address it uses now, then name the crew's payment portal on that same address.",
-        answer: ["paywall-tollkeepers.test", "paywall-tollkeepers"],
+        answer: [v.portal, v.portal.replace(/\.test$/, "")],
         placeholder: "A domain",
         explainRight: "Right. tollgate.test resolves to 203.0.113.90 now, and two other names sit on that address, including the payment portal the post never mentions. Block the address and you cover all of their infrastructure at once, not just the one name they handed you.",
-        explainWrong: "Pivot tollgate.test to its current address, 203.0.113.90, then look at the other names on it: paywall-tollkeepers.test is the crew's payment portal. Its old parked address is a trap, since a real supplier shares it.",
+        explainWrong: `Pivot tollgate.test to its current address, 203.0.113.90, then look at the other names on it: ${v.portal} is the crew's payment portal. Its old parked address is a trap, since a real supplier shares it.`,
         teaches: "pivoting",
         hint: "Click tollgate.test's current address to see every name on it. Use the address it uses now, not the old parked one, which a real supplier also sat on.",
         solution: { evidence: "ev_leak_pivot", command: "203.0.113.90" },
@@ -853,9 +982,9 @@ export const TRACK_TICKETS: Ticket[] = [
         type: "iocs",
         id: "q_leak_block",
         prompt: "Write Mags a block list for the Tollkeepers' infrastructure: every name on their current address, and the address itself. Defang every one.",
-        answer: ["tollgate.test", "paywall-tollkeepers.test", "status-tollgate.test", "203.0.113.90"],
+        answer: ["tollgate.test", v.portal, v.status, "203.0.113.90"],
         explainRight: "Right. Three names and the address they share, each defanged so nobody clicks one by accident. The old parked address stays off the list: a real school supplier lives there, and blocking it would cut the district off from its own reading platform.",
-        explainWrong: "The list is the three names on 203.0.113.90 and the address itself, all defanged, like tollgate[.]test. Leave out 198.51.100.66 and reading-portal.example: that is a real supplier on an old shared address.",
+        explainWrong: `The list is the three names on 203.0.113.90 and the address itself, all defanged, like tollgate[.]test. Leave out ${v.parkedIp} and reading-portal.example: that is a real supplier on an old shared address.`,
         teaches: "defanging",
         hint: "Look up the current address on the board and list everything on it. Break the last dot of each one with [.], like bad[.]example.",
       },
@@ -882,5 +1011,14 @@ export const TRACK_TICKETS: Ticket[] = [
       "Tollkeepers. A ransomware crew in our little town, holding a file that came out of a principal's mailbox. I want to know how they found that mailbox. I have a horrible feeling it is the same door again.",
     ],
     setFlags: ["leak_case"],
-  },
+  };
+}
+
+export const TRACK_TICKETS: Ticket[] = [
+  socSprayTicket(CLINIC_VPN),
+  guestWifiTicket(DEFAULT_GUEST),
+  mfaFatigueTicket(DEFAULT_MFA),
+  usbTicket(DEFAULT_USB),
+  externalTestTicket(DEFAULT_EXTERNAL),
+  leakSiteTicket(DEFAULT_LEAK),
 ];

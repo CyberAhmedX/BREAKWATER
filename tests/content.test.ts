@@ -19,6 +19,14 @@ import { testRule } from "../src/engine/detect";
 import { checkReport } from "../src/engine/report";
 import { ATTACK_CATALOGUE } from "../src/content/attack";
 import { trackFlag } from "../src/engine/state";
+import { VARYING_CASES, withRunData } from "../src/content/vary";
+
+// Some cases are rebuilt from the run's seed. Every rule below that judges a
+// case on its own is checked against the catalogue and against those cases as
+// several different runs would see them.
+const SEEDS = [1, 7, 42, 99, 1000, 123456, 20260310, 2 ** 31, 4294967295];
+const VARIANTS = VARYING_CASES.flatMap((id) => SEEDS.map((seed) => withRunData(TICKETS.find((t) => t.id === id)!, seed)));
+const EVERY = [...TICKETS, ...VARIANTS];
 
 // Gather every string of player-facing text so we can assert house rules on it.
 function allText(): string[] {
@@ -38,7 +46,7 @@ function allText(): string[] {
       push(q.explainWrong);
     }
   }
-  for (const t of TICKETS) {
+  for (const t of EVERY) {
     push(t.title);
     (t.attack ?? []).forEach((a) => push(a.name));
     (t.takeaways ?? []).forEach((x) => {
@@ -76,7 +84,8 @@ function allText(): string[] {
       } else if (ev.kind === "request") {
         push(ev.app.host);
         push(ev.request);
-        Object.values(ev.app.records).forEach((rec) => Object.values(rec).forEach(push));
+        if (ev.app.kind === "login") [ev.app.user, ev.app.password, ev.app.role].forEach(push);
+        else Object.values(ev.app.records).forEach((rec) => Object.values(rec).forEach(push));
       } else if (ev.kind === "merge") {
         push(ev.caption);
         ev.sources.forEach((src) => {
@@ -279,7 +288,7 @@ describe("content integrity", () => {
   });
 
   it("single and multi questions have valid answer indices", () => {
-    for (const t of TICKETS) {
+    for (const t of EVERY) {
       for (const q of t.questions) {
         if (q.type === "single") {
           expect(q.answer).toBeGreaterThanOrEqual(0);
@@ -362,10 +371,10 @@ describe("answer options do not give the answer away", () => {
 });
 
 describe("spot questions, hints and ATT&CK tags", () => {
-  const graded = TICKETS.flatMap((t) => t.questions.filter((q) => q.type !== "decision").map((q) => ({ t, q })));
+  const graded = EVERY.flatMap((t) => t.questions.filter((q) => q.type !== "decision").map((q) => ({ t, q })));
 
   it("every spot question points at evidence in its own ticket and at parts that exist", () => {
-    for (const t of TICKETS) {
+    for (const t of EVERY) {
       for (const q of t.questions) {
         if (q.type !== "spot") continue;
         const ev = t.evidence.find((e) => e.id === q.evidence);
@@ -400,7 +409,7 @@ describe("spot questions, hints and ATT&CK tags", () => {
   });
 
   it("ATT&CK tags are well formed and not repeated within a case", () => {
-    for (const t of TICKETS) {
+    for (const t of EVERY) {
       const ids = (t.attack ?? []).map((a) => a.id);
       for (const a of t.attack ?? []) {
         expect(a.id, t.id).toMatch(/^T\d{4}(\.\d{3})?$/);
@@ -463,7 +472,7 @@ describe("track and side cases", () => {
 });
 
 describe("terminal cases", () => {
-  const typed = TICKETS.flatMap((t) => t.questions.flatMap((q) => (q.type === "typed" ? [{ t, q }] : [])));
+  const typed = EVERY.flatMap((t) => t.questions.flatMap((q) => (q.type === "typed" ? [{ t, q }] : [])));
 
   it("every typed question's example command really finds the answer", () => {
     for (const { t, q } of typed) {
@@ -491,7 +500,7 @@ describe("terminal cases", () => {
 });
 
 describe("firewall cases", () => {
-  const rulesQs = TICKETS.flatMap((t) => t.questions.flatMap((q) => (q.type === "rules" ? [{ t, q }] : [])));
+  const rulesQs = EVERY.flatMap((t) => t.questions.flatMap((q) => (q.type === "rules" ? [{ t, q }] : [])));
 
   it("the given solution passes every flow, and the starting rules do not", () => {
     for (const { t, q } of rulesQs) {
@@ -505,7 +514,7 @@ describe("firewall cases", () => {
 });
 
 describe("admin console cases", () => {
-  const consoleQs = TICKETS.flatMap((t) => t.questions.flatMap((q) => (q.type === "console" ? [{ t, q }] : [])));
+  const consoleQs = EVERY.flatMap((t) => t.questions.flatMap((q) => (q.type === "console" ? [{ t, q }] : [])));
 
   it("the given solution meets every goal, and doing nothing meets none of the work", () => {
     for (const { t, q } of consoleQs) {
@@ -522,7 +531,7 @@ describe("admin console cases", () => {
 });
 
 describe("timeline builder cases", () => {
-  const mergeQs = TICKETS.flatMap((t) => t.questions.flatMap((q) => (q.type === "merge" ? [{ t, q }] : [])));
+  const mergeQs = EVERY.flatMap((t) => t.questions.flatMap((q) => (q.type === "merge" ? [{ t, q }] : [])));
 
   it("needs at least one clock changed, and the true order puts cause before effect", () => {
     for (const { t, q } of mergeQs) {
@@ -540,7 +549,7 @@ describe("timeline builder cases", () => {
 });
 
 describe("scope, CVSS, block list and ATT&CK questions", () => {
-  const qs = TICKETS.flatMap((t) => t.questions.map((q) => ({ t, q })));
+  const qs = EVERY.flatMap((t) => t.questions.map((q) => ({ t, q })));
 
   it("scope questions have targets on both sides of the line", () => {
     for (const { t, q } of qs) {
@@ -577,13 +586,13 @@ describe("scope, CVSS, block list and ATT&CK questions", () => {
       if (q.type !== "attack-map") continue;
       for (const it of q.items) expect(byId.has(it.answer[0]), `${q.id}: ${it.answer[0]}`).toBe(true);
     }
-    for (const t of TICKETS) for (const a of t.attack ?? []) expect(byId.get(a.id)?.name, `${t.id}: ${a.id}`).toBe(a.name);
+    for (const t of EVERY) for (const a of t.attack ?? []) expect(byId.get(a.id)?.name, `${t.id}: ${a.id}`).toBe(a.name);
     expect(new Set(ATTACK_CATALOGUE.map((x) => x.id)).size).toBe(ATTACK_CATALOGUE.length);
   });
 });
 
 describe("detection rule and report questions", () => {
-  const qs = TICKETS.flatMap((t) => t.questions);
+  const qs = EVERY.flatMap((t) => t.questions);
 
   it("every detection rule's solution passes the replay and its start does not", () => {
     for (const q of qs) {
@@ -605,7 +614,7 @@ describe("detection rule and report questions", () => {
   });
 
   it("optional secret questions never block a case and set a secret flag", () => {
-    for (const t of TICKETS) {
+    for (const t of EVERY) {
       for (const q of t.questions) {
         if (!("secret" in q) || !q.secret) continue;
         expect(q.type, `${q.id}`).toBe("typed");
@@ -615,7 +624,7 @@ describe("detection rule and report questions", () => {
   });
 
   it("a live case has a sensible clock", () => {
-    for (const t of TICKETS) {
+    for (const t of EVERY) {
       if (!t.live) continue;
       expect(t.live.seconds, t.id).toBeGreaterThanOrEqual(60);
       expect(t.live.seconds, t.id).toBeLessThanOrEqual(600);
