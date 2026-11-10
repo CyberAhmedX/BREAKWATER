@@ -39,7 +39,7 @@ import { screenTitle, screenTrack } from "./title";
 import { screenScreening } from "./screening";
 import { ticketWorkstation } from "./workstation";
 import { playDialogue, playScene } from "./dialogue";
-import { openCodex, openPractice, openRecord, openSettings, openShareCard } from "./overlays";
+import { openCodex, openPractice, openRecord, openSettings, openShareCard, openSkills } from "./overlays";
 
 // The app controller: it owns the run and the record, routes between screens,
 // and runs the chapter desk, case completion and the ending. The screens
@@ -466,7 +466,12 @@ export class App implements Host {
         el("span", { text: "Got stuck, or found a bug? " }),
         el("a", { href: "https://github.com/CyberAhmedX/BREAKWATER/issues", target: "_blank", rel: "noopener", text: "Tell me what happened." }),
       ]);
-      card.append(again, share, record, endings, feedback);
+      const skills = el("button", { class: "btn ghost small", type: "button", text: "Skills summary" });
+      skills.addEventListener("click", () => {
+        audio.click();
+        openSkills(this);
+      });
+      card.append(again, share, skills, record, endings, feedback);
       this.stage.className = "stage center";
       mount(this.stage, card);
     });

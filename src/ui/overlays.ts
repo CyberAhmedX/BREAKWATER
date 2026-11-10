@@ -13,6 +13,9 @@ import { SECRETS } from "../content/secrets";
 import { el, mount } from "./dom";
 import { drawShareCard, shareFileName } from "./sharecard";
 import { type Host, stat } from "./host";
+import { TICKETS } from "../content/tickets";
+import { QUEUE } from "../content/queue";
+import { skillsFileName, skillsHtml, skillsSummary } from "../engine/skills";
 
 // Everything that opens over the game: field notes, settings, the record of
 // endings and achievements, save export and import, chapter select, practice
@@ -186,6 +189,13 @@ export function openSettings(host: Host): void {
     openRecord(host);
   });
 
+  const skills = el("button", { class: "btn ghost", type: "button", text: "Skills summary" });
+  skills.addEventListener("click", () => {
+    audio.click();
+    close();
+    openSkills(host);
+  });
+
   const exportBtn = el("button", { class: "btn ghost", type: "button", text: "Export save" });
   exportBtn.addEventListener("click", () => {
     audio.click();
@@ -284,7 +294,7 @@ export function openSettings(host: Host): void {
         changed();
       },
     ),
-    el("div", { class: "set-row" }, [record]),
+    el("div", { class: "set-row" }, [el("div", { class: "btn-row" }, host.s.hired ? [record, skills] : [record])]),
     el("div", { class: "set-row" }, [
       el("span", { class: "set-label", text: "Your save lives in this browser. Export it as a backup, or to carry on somewhere else." }),
       el("div", { class: "btn-row" }, [exportBtn, importBtn]),
@@ -567,4 +577,53 @@ export function closeBtn(on: () => void): HTMLElement {
 /** A line for the share card beyond the basics. */
 function shareExtra(host: Host): string {
   return host.s.cleanCloses === host.s.totalCloses && host.s.totalCloses > 0 ? "Every case closed clean" : `${host.s.cleanCloses} of ${host.s.totalCloses} cases closed clean`;
+}
+
+/**
+ * What this run has actually had the player do: tools driven, techniques met,
+ * concepts covered. Shown on screen, and downloadable as one page to keep.
+ */
+export function openSkills(host: Host): void {
+  const finished = host.s.chapter >= 6;
+  const sum = skillsSummary(host.s, { tickets: TICKETS, codex: CODEX, queue: QUEUE, ending: finished ? resolveEnding(host.s) : undefined });
+  const status = el("p", { class: "transfer-status", role: "status" });
+  const download = el("button", { class: "btn primary", type: "button", text: "Download as a page" });
+  download.addEventListener("click", () => {
+    audio.click();
+    const date = new Date().toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" });
+    const url = URL.createObjectURL(new Blob([skillsHtml(sum, date)], { type: "text/html" }));
+    const a = el("a", { href: url, download: skillsFileName(sum.player) });
+    document.body.append(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    status.textContent = "Saved to your downloads. It is one file, and opens in any browser.";
+  });
+
+  const body: HTMLElement[] = [
+    el("p", { class: "muted", text: "Only what you did in cases you closed properly. A botched case earns no line here." }),
+    el("div", { class: "ending-stats skills-stats" }, [
+      stat("Cases closed", String(sum.closed)),
+      stat("First-submit accuracy", `${sum.accuracy}%`),
+      ...(sum.triage.real > 0 ? [stat("Real alerts caught", `${sum.triage.caught} of ${sum.triage.real}`)] : []),
+    ]),
+  ];
+  if (sum.tools.length) {
+    body.push(el("h3", { class: "skills-h", text: "Tools used" }));
+    body.push(el("ul", { class: "skills-tools" }, sum.tools.map((t) => el("li", {}, [el("span", { class: "skills-tool", text: t.tool }), el("span", { class: "skills-cases", text: t.cases.join(" \u00b7 ") })]))));
+  } else {
+    body.push(el("p", { class: "muted", text: "Nothing yet. Close a case and it shows up here." }));
+  }
+  if (sum.techniques.length) {
+    // no ampersand here: the pixel heading font draws one badly
+    body.push(el("h3", { class: "skills-h", text: "Techniques in your cases, by MITRE id" }));
+    body.push(el("div", { class: "attack skills-attack" }, sum.techniques.map((t) => el("span", { class: "attack-tag", text: `${t.id} ${t.name}` }))));
+  }
+  if (sum.concepts.length) {
+    body.push(el("h3", { class: "skills-h", text: "Concepts covered" }));
+    body.push(el("p", { class: "skills-concepts", text: sum.concepts.join(" \u00b7 ") }));
+  }
+  body.push(el("p", { class: "muted", text: "This is a record of a game, not a certificate. Use it to remember what to practise, or to talk through what you did." }));
+  body.push(el("div", { class: "btn-row" }, [download]), status);
+  overlay(host, "Skills summary", body);
 }

@@ -21,7 +21,7 @@ const TOOL_TIPS: Record<string, string> = {
   firewall: "New tool: the firewall editor. Write allow and deny rules in order, then Replay traffic to see what each flow does. The first matching rule wins.",
   console: "New tool: the admin console. Lock a hijacked account down in order: reset the password, end its sessions, remove bad mail rules, fix MFA.",
   merge: "New tool: the timeline builder. Set each log's time zone so the events line up on one clock. Get it wrong and things happen out of order.",
-  request: "New tool: the request editor. Change the request, press Send, and read the reply. Try changing an id to one that is not yours.",
+  request: "New tool: the request editor. Change a value in the request, press Send, and read the reply. Each reply tells you a little more about how the site behaves.",
   pivot: "New tool: the pivot board. Search a domain or address, then follow it to the rest of the attacker's infrastructure.",
   scope: "New tool: the scope checker. Tick only the addresses the engagement letter allows. Exclusions win, and anything not listed is out.",
   cvss: "New tool: the CVSS calculator. Pick a value for each metric to build the vector and get the score.",

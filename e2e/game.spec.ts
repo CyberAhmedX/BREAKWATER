@@ -29,6 +29,29 @@ test("one full run, then every other ending through chapter select", async ({ pa
   expect(card.suggestedFilename()).toBe("breakwater-lighthouse-Riley.png");
   await page.locator(".overlay-close").click();
 
+  // the skills summary lists what this run really did, and downloads as one page
+  await page.getByRole("button", { name: "Skills summary" }).click();
+  await expect(page.locator(".skills-tools li")).not.toHaveCount(0);
+  await expect(page.locator(".skills-tools")).toContainText("Timelines across time zones");
+  await expect(page.locator(".skills-tools")).toContainText("Two copies, two fingerprints");
+  await expect(page.locator(".skills-stats")).toContainText("8 of 8");
+  const [skills] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: "Download as a page" }).click()]);
+  expect(skills.suggestedFilename()).toBe("breakwater-skills-Riley.html");
+  const skillsPath = test.info().outputPath("skills.html");
+  await skills.saveAs(skillsPath);
+  // open the saved page on its own: it stands alone, with no scripts and no links out
+  const view = await page.context().newPage();
+  const requests: string[] = [];
+  view.on("request", (r) => requests.push(r.url()));
+  await view.goto(new URL(skillsPath, "file://").href);
+  await expect(view.locator("h1")).toHaveText("Riley");
+  await expect(view.locator("dl")).toContainText("The Lighthouse");
+  await expect(view.locator("footer")).toContainText("not a certificate");
+  await expect(view.locator("script, link, img, a")).toHaveCount(0);
+  expect(requests).toHaveLength(1);
+  await view.close();
+  await page.locator(".overlay-close").click();
+
   // the forensics secret, found during the clean run, is recorded
   expect((await save(page)).flags).toContain("secret_forensics");
 
@@ -88,6 +111,28 @@ test("each team finds its own chapter-three secret", async ({ page }) => {
   }
 });
 
+
+test("each team works its own chapter four case with its own tool", async ({ page }) => {
+  test.setTimeout(4 * 60_000);
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+  const own: Record<string, string> = { soc: "t4_soc", network: "t4_network", helpdesk: "t4_helpdesk", forensics: "t4_forensics", pentest: "t4_harbor_pentest", intel: "t4_intel_correlate" };
+  for (const track of DEPTS) {
+    await page.goto(GAME);
+    await page.evaluate((t) => {
+      localStorage.setItem("breakwater.save.v1", JSON.stringify({ version: 1, playerName: "Four", track: t, hired: true, chapter: 4, xp: 400, integrity: 3, flags: [`track_${t}`, "knows_truth", "knows_harborwatch", "clinic_examined", "evidence_chain_intact", "told_mags"], done: [], codex: [], screeningScore: 5, cleanCloses: 6, totalCloses: 6, botched: 0, screeningFails: 0, hintsUsed: 0, hard: false, seed: 20261110, triage: {} }));
+      localStorage.setItem("breakwater.meta.v1", JSON.stringify({ version: 1, endings: [], achievements: [], codexEver: [], casesEver: [], secretsEver: [], checkpoints: {}, settings: { music: 0, effects: 0, muted: true, textScale: 1, reducedMotion: true, relaxedTimers: false } }));
+    }, track);
+    await page.reload();
+    expect(await play(page, { name: "Four", track, untilChapter: 5 })).toBeNull();
+    const s = await save(page);
+    expect(s.done, `${track} closed its own case`).toContain(own[track]);
+    // the principled choice everywhere: nobody crossed the line
+    expect(s.flags).not.toContain("crossed_line");
+    expect(s.flags).toEqual(expect.arrayContaining(["triage_caught:q4_shadow", "triage_caught:q4_device"]));
+  }
+  expect(errors).toEqual([]);
+});
 
 test("each team plays its own live finale to an ending", async ({ page }) => {
   test.setTimeout(4 * 60_000);

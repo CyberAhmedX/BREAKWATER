@@ -124,3 +124,21 @@ describe("achievements", () => {
     expect([...ENDING_ORDER].sort()).toEqual(Object.keys(ENDINGS).sort());
   });
 });
+
+describe("checkpoints from an older version", () => {
+  it("are filled in with the fields the current game expects", async () => {
+    const { freshMeta, checkpointCopy } = await import("../src/engine/meta");
+    const { freshSave } = await import("../src/engine/state");
+    const meta = freshMeta();
+    const old = { ...freshSave(), playerName: "Old", hired: true, track: "soc", chapter: 3 } as Record<string, unknown>;
+    delete old.triage;
+    delete old.seed;
+    meta.checkpoints[3] = old as never;
+    const copy = checkpointCopy(meta, 3)!;
+    expect(copy.triage).toEqual({});
+    expect(Number.isFinite(copy.seed)).toBe(true);
+    expect(copy.playerName).toBe("Old");
+    // and the stored checkpoint itself is left as it was
+    expect((meta.checkpoints[3] as unknown as Record<string, unknown>).triage).toBeUndefined();
+  });
+});

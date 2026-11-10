@@ -15,7 +15,8 @@ export function siemView(ev: SiemEvidence): HTMLElement {
     class: "siem-input",
     type: "text",
     "aria-label": `Search ${ev.index}`,
-    placeholder: "action=failure | stats count by src_ip",
+    // an example built from this index's own fields, so it is never one that cannot work here
+    placeholder: ev.fields.includes("action") && ev.fields.includes("src_ip") ? "action=failure | stats count by src_ip" : `* | stats count by ${ev.fields[ev.fields.length - 1] ?? "_time"}`,
     autocomplete: "off",
     autocapitalize: "off",
     autocorrect: "off",

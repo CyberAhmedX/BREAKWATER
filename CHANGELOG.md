@@ -6,6 +6,25 @@ All notable changes to Breakwater, newest first. This file follows
 
 Play online: https://cyberahmedx.github.io/BREAKWATER/
 
+## [3.1.0] - 2026-11-10
+
+### Added
+- **A hands-on task in every screening.** The fifth question is now one small job on the team's own tool: a SIEM search, an email header, a firewall rule order, a hash check, a scope check or a passive DNS pivot. Each sitting draws its own.
+- **An alert queue.** From chapter two, five alerts arrive each chapter and there is time to open three (two on hard mode). Two are real. A real alert you close or leave to age out comes back in the next chapter's opening scene, or in the epilogue for chapter five, and so does one you caught. The queue pays no XP, so rank still measures the cases.
+- **Tools in chapter four.** Each team's chapter four case now puts the honest alternative in your hands before the decision: SOC measures the noise and writes the tight detection rule, Network writes the scoped firewall rule, Help Desk writes the request down, Forensics sets the clocks and sees when the break-in really began.
+- A lab copy of the old HarborWatch login in the chapter three pentest case, tested in the request editor, and a CVSS rating for it. Every hands-on tool now appears in at least two cases.
+- **A skills summary**, on the ending card and in Settings: the tools you used and on which cases, the ATT&CK techniques covered, and how the run went. Downloads as one self-contained page.
+- A new achievement, Signal and Noise, for escalating every real alert in a run.
+
+### Changed
+- **Ten cases now change between runs** instead of two: the guest wifi, MFA fatigue, USB timeline, external test, leak site, the SOC chapter four case and the pentest and intel finales join the password spray and the school DNS tunnel.
+- **Earlier choices close endings.** Low Tide is closed if you handed BRACKISH to Walter in chapter three or took his promotion in chapter four. Company Keeper is closed once Mags holds her message, unless you took that promotion. Every path leaves at least two ways out.
+- A closed option is now shown with the choice that closed it, instead of silently disappearing. This applies to the clean containment in the finale too.
+- The app controller is split into one file per screen. No change in behaviour.
+
+### Fixed
+- A save or chapter checkpoint written by an older version is filled in with any newer fields when it is loaded, and a save with no run seed is given one that is written back at once.
+
 ## [3.0.0] - 2026-11-02
 
 ### Changed

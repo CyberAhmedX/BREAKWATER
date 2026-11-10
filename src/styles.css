@@ -254,6 +254,15 @@ body {
   background: #10141c;
 }
 
+/* ------------------------------------------------------------------ skills summary */
+.skills-stats { justify-content: flex-start; margin: 10px 0 4px; }
+.skills-h { font-family: var(--display); font-size: calc(12px * var(--ts)); color: var(--teal); letter-spacing: 1px; margin: 18px 0 8px; font-weight: 400; }
+.skills-tools { list-style: none; margin: 0; padding: 0; }
+.skills-tools li { padding: 8px 0; border-bottom: 1px solid var(--edge); display: flex; flex-direction: column; gap: 2px; }
+.skills-tool { font-weight: 600; }
+.skills-cases, .skills-concepts { color: var(--fg-dim); font-size: calc(13.5px * var(--ts)); margin: 0; }
+.skills-attack { margin: 0; }
+
 /* ------------------------------------------------------------------ alert queue */
 .alert-panel {
   max-width: 900px;

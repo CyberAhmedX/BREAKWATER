@@ -1,4 +1,4 @@
-import type { SaveData } from "./state";
+import { type SaveData, withDefaults } from "./state";
 
 // Everything that outlives a single run: settings, the endings you have seen,
 // achievements, every Field Note you have ever unlocked, and a snapshot of the
@@ -133,7 +133,8 @@ export function recordCheckpoint(meta: MetaData, save: SaveData): void {
 /** A fresh copy of a chapter checkpoint, safe to play from. */
 export function checkpointCopy(meta: MetaData, chapter: number): SaveData | undefined {
   const cp = meta.checkpoints[chapter];
-  return cp ? (JSON.parse(JSON.stringify(cp)) as SaveData) : undefined;
+  // a checkpoint taken by an older version may lack newer fields
+  return cp ? withDefaults(JSON.parse(JSON.stringify(cp)) as Partial<SaveData>) : undefined;
 }
 
 /** Chapter select opens once you have seen any ending. */

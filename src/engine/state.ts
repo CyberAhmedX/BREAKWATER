@@ -188,6 +188,18 @@ export function unlockCodex(save: SaveData, id: string): void {
   if (!save.codex.includes(id)) save.codex.push(id);
 }
 
+/**
+ * A save with every field the current game expects. Saves and chapter
+ * checkpoints written by an older version lack the newer fields; this fills
+ * them in, so nothing downstream meets an undefined.
+ */
+export function withDefaults(data: Partial<SaveData>): SaveData {
+  const merged = { ...freshSave(), ...data };
+  if (typeof merged.triage !== "object" || merged.triage === null || Array.isArray(merged.triage)) merged.triage = {};
+  if (!Number.isFinite(merged.seed)) merged.seed = randomSeed();
+  return merged;
+}
+
 export function load(): SaveData {
   try {
     let raw = localStorage.getItem(SAVE_KEY);
@@ -201,8 +213,7 @@ export function load(): SaveData {
     if (!raw) return freshSave();
     const data = JSON.parse(raw) as Partial<SaveData>;
     if (data.version !== 1) return freshSave();
-    const merged = { ...freshSave(), ...data };
-    if (typeof merged.triage !== "object" || merged.triage === null || Array.isArray(merged.triage)) merged.triage = {};
+    const merged = withDefaults(data);
     // A save from before per-run cases has no seed. Give it one and write it
     // back at once, so a reload in the middle of a case draws the same data.
     if (!Number.isFinite(data.seed)) {

@@ -18,7 +18,11 @@ export function playScene(host: Host, sc: Scene, onDone: () => void): void {
   markSceneSeen(host.meta, sc.id);
   saveMeta(host.meta);
   if (seen && !sc.choice && host.meta.settings.skipSeen) {
-    onDone();
+    // Lines that depend on this run (what became of the alert queue) are new
+    // even in a scene you have read, so those still play.
+    const fresh = visibleLines(host.s, sc.lines).filter((l) => l.showIf?.length);
+    if (fresh.length) playDialogue(host, fresh, undefined, onDone);
+    else onDone();
     return;
   }
   playDialogue(host, sc.lines, sc.choice, onDone);
@@ -113,7 +117,8 @@ export function playDialogue(host: Host,
       // so the player can see what shut it.
       const lock = choiceLock(host.s, opt);
       if (lock !== null) {
-        panel.append(el("button", { class: "btn choice locked", type: "button", disabled: true }, [el("span", { class: "choice-text", text: opt.text }), el("span", { class: "choice-lock", text: lock })]));
+        // aria-disabled, not disabled, so a screen reader still reads the reason
+        panel.append(el("button", { class: "btn choice locked", type: "button", "aria-disabled": "true" }, [el("span", { class: "choice-text", text: opt.text }), el("span", { class: "choice-lock", text: lock })]));
         return;
       }
       const b = el("button", { class: "btn choice", type: "button", text: opt.text });
@@ -129,7 +134,7 @@ export function playDialogue(host: Host,
       panel.append(b);
     });
     mount(box, panel);
-    panel.querySelector<HTMLButtonElement>("button:not([disabled])")?.focus();
+    panel.querySelector<HTMLButtonElement>("button:not(.locked)")?.focus();
   };
 
   if (!lines.length) finishLines();
