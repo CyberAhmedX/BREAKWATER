@@ -10,16 +10,16 @@ Play online: https://cyberahmedx.github.io/BREAKWATER/
 
 ### Added
 - **A hands-on task in every screening.** The fifth question is now one small job on the team's own tool: a SIEM search, an email header, a firewall rule order, a hash check, a scope check or a passive DNS pivot. Each sitting draws its own.
-- **An alert queue.** From chapter two, five alerts arrive each chapter and there is time to open three (two on hard mode). Two are real. A real alert you close or leave to age out comes back in the next chapter's opening scene, or in the epilogue for chapter five, and so does one you caught. The queue pays no XP, so rank still measures the cases.
-- **Tools in chapter four.** Each team's chapter four case now puts the honest alternative in your hands before the decision: SOC measures the noise and writes the tight detection rule, Network writes the scoped firewall rule, Help Desk writes the request down, Forensics sets the clocks and sees when the break-in really began.
+- **An alert queue.** From chapter two, five alerts arrive each chapter and there is time to open three (two on hard mode). How you handle them can come back later in the story. The queue pays no XP, so rank still measures the cases.
+- **Tools in chapter four.** Each team's chapter four case now gives you a hands-on task on that team's tools before the decision.
 - A lab copy of the old HarborWatch login in the chapter three pentest case, tested in the request editor, and a CVSS rating for it. Every hands-on tool now appears in at least two cases.
 - **A skills summary**, on the ending card and in Settings: the tools you used and on which cases, the ATT&CK techniques covered, and how the run went. Downloads as one self-contained page.
-- A new achievement, Signal and Noise, for escalating every real alert in a run.
+- A new achievement, Signal and Noise, for a flawless alert queue across a run.
 
 ### Changed
 - **Ten cases now change between runs** instead of two: the guest wifi, MFA fatigue, USB timeline, external test, leak site, the SOC chapter four case and the pentest and intel finales join the password spray and the school DNS tunnel.
-- **Earlier choices close endings.** Low Tide is closed if you handed BRACKISH to Walter in chapter three or took his promotion in chapter four. Company Keeper is closed once Mags holds her message, unless you took that promotion. Every path leaves at least two ways out.
-- A closed option is now shown with the choice that closed it, instead of silently disappearing. This applies to the clean containment in the finale too.
+- **Earlier choices close endings.** Some choices in chapters three and four now close off endings. Every path leaves at least two ways out.
+- A closed option is now shown with the choice that closed it, instead of silently disappearing. This applies in the finale too.
 - The app controller is split into one file per screen. No change in behaviour.
 - The browser tests run on Playwright 1.63, which supports the Ubuntu image GitHub's runners now use, and every multi-team test is one test per team.
 - The README demo and screenshots are retaken, with two new ones for the alert queue and the skills summary.
