@@ -2,6 +2,7 @@ import type { Chapter, Dept } from "./types";
 import { DEPTS } from "./types";
 import { type SaveData, freshSave } from "./state";
 import { type MetaData, freshMeta, TEXT_SCALES } from "./meta";
+import { TRIAGE_CALLS, type TriageCall } from "./triage";
 
 // Moving a save between browsers and devices. One bundle holds the run and
 // everything that outlives it (endings, achievements, settings, chapter
@@ -119,6 +120,11 @@ function cleanSave(x: unknown): SaveData | null {
   s.hintsUsed = count(x.hintsUsed);
   s.hard = x.hard === true;
   s.seed = typeof x.seed === "number" && Number.isFinite(x.seed) ? x.seed >>> 0 : s.seed;
+  if (isObj(x.triage)) {
+    for (const [id, call] of Object.entries(x.triage).slice(0, 200)) {
+      if (id.length > 0 && id.length <= 80 && TRIAGE_CALLS.includes(call as TriageCall)) s.triage[id] = call as TriageCall;
+    }
+  }
   // a hired run with no track or no chapter makes no sense; start that run over
   if (s.hired && (!s.track || s.chapter === 0)) return null;
   return s;

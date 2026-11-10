@@ -1,4 +1,5 @@
-import type { Chapter, Dept, Flag, SceneLine } from "./types";
+import type { Chapter, Dept, Flag, SceneChoice, SceneLine } from "./types";
+import type { TriageCall } from "./triage";
 
 export interface SaveData {
   version: 1;
@@ -19,6 +20,7 @@ export interface SaveData {
   hintsUsed: number; // hints bought across the run
   hard: boolean; // hard mode: no hints, and every case gets one attempt
   seed: number; // per-run seed: varies some case data each run (see content/vary.ts)
+  triage: Record<string, TriageCall>; // alert id -> what became of it (see engine/triage.ts)
 }
 
 /** A fresh run seed, as a 32-bit unsigned integer. */
@@ -84,6 +86,7 @@ export function freshSave(): SaveData {
     hintsUsed: 0,
     hard: false,
     seed: randomSeed(),
+    triage: {},
   };
 }
 
@@ -155,6 +158,15 @@ export function hasNone(save: SaveData, flags?: Flag[]): boolean {
   return !flags || !flags.some((f) => save.flags.includes(f));
 }
 
+/**
+ * Why a story option is closed to this run, or null if it is open. The first
+ * lock that applies gives the reason.
+ */
+export function choiceLock(save: SaveData, opt: SceneChoice): string | null {
+  const lock = (opt.locks ?? []).find((l) => hasAll(save, l.all) && hasNone(save, l.none));
+  return lock ? lock.note : null;
+}
+
 export function setFlag(save: SaveData, flag: Flag): void {
   if (!save.flags.includes(flag)) save.flags.push(flag);
 }
@@ -190,6 +202,7 @@ export function load(): SaveData {
     const data = JSON.parse(raw) as Partial<SaveData>;
     if (data.version !== 1) return freshSave();
     const merged = { ...freshSave(), ...data };
+    if (typeof merged.triage !== "object" || merged.triage === null || Array.isArray(merged.triage)) merged.triage = {};
     // A save from before per-run cases has no seed. Give it one and write it
     // back at once, so a reload in the middle of a case draws the same data.
     if (!Number.isFinite(data.seed)) {

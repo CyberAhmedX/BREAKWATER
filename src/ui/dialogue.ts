@@ -1,5 +1,5 @@
 import type { Scene, SceneChoice, SceneLine } from "../engine/types";
-import { hasAll, hasNone, setFlag, visibleLines } from "../engine/state";
+import { choiceLock, hasAll, hasNone, setFlag, visibleLines } from "../engine/state";
 import { hasSeenScene, markSceneSeen, saveMeta } from "../engine/meta";
 import { audio } from "../audio/audio";
 import { CHARACTERS } from "../content/characters";
@@ -109,6 +109,13 @@ export function playDialogue(host: Host,
     // Some options are only on the table if your earlier conduct earned them.
     const available = c.options.filter((o) => hasAll(host.s, o.requires) && hasNone(host.s, o.hideIf));
     available.forEach((opt) => {
+      // An option an earlier choice closed is still shown, with the reason,
+      // so the player can see what shut it.
+      const lock = choiceLock(host.s, opt);
+      if (lock !== null) {
+        panel.append(el("button", { class: "btn choice locked", type: "button", disabled: true }, [el("span", { class: "choice-text", text: opt.text }), el("span", { class: "choice-lock", text: lock })]));
+        return;
+      }
       const b = el("button", { class: "btn choice", type: "button", text: opt.text });
       b.addEventListener("click", () => {
         audio.click();
@@ -122,7 +129,7 @@ export function playDialogue(host: Host,
       panel.append(b);
     });
     mount(box, panel);
-    panel.querySelector("button")?.focus();
+    panel.querySelector<HTMLButtonElement>("button:not([disabled])")?.focus();
   };
 
   if (!lines.length) finishLines();

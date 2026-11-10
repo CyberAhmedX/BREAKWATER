@@ -5,6 +5,8 @@ import { TICKETS } from "../src/content/tickets";
 import { withRunData } from "../src/content/vary";
 import { SCENES } from "../src/content/scenes";
 import { screeningFor } from "../src/content/screenings";
+import { practicalFor } from "../src/content/practicals";
+import { QUEUE } from "../src/content/queue";
 import { checkScope } from "../src/engine/scope";
 import { parseVector, METRICS } from "../src/engine/cvss";
 import { defang } from "../src/engine/ioc";
@@ -25,9 +27,12 @@ export interface Plan {
   untilChapter?: number;
   // a hard mode run, which must never offer a hint
   hard?: boolean;
+  // the alert queue: "catch" opens and escalates every real alert (the default),
+  // "ignore" leaves the queue to age out, "wrong" closes the real ones
+  triage?: "catch" | "ignore" | "wrong";
 }
 
-export async function save(page: Page): Promise<{ chapter: number; flags: string[]; done: string[]; seed: number }> {
+export async function save(page: Page): Promise<{ chapter: number; flags: string[]; done: string[]; seed: number; screeningFails: number }> {
   return page.evaluate(() => JSON.parse(localStorage.getItem("breakwater.save.v1") ?? "{}"));
 }
 
@@ -88,15 +93,40 @@ export async function play(page: Page, plan: Plan): Promise<string | null> {
       await workCase(page, plan);
       continue;
     }
+    if (await page.locator(".triage-list").count()) {
+      await workQueue(page, plan);
+      continue;
+    }
     if (await page.locator(".queue").count()) {
+      const alerts = page.locator(".alert-queue-open");
       const open = page.locator(".ticket-card:not(.done)");
-      if (await open.count()) await open.first().click();
+      if ((plan.triage ?? "catch") !== "ignore" && (await alerts.count())) await alerts.click();
+      else if (await open.count()) await open.first().click();
+      // leaving alerts unworked asks once before it lets the day end
       else await page.locator(".desk-footer .btn.primary").click();
       continue;
     }
     await page.waitForTimeout(50);
   }
   throw new Error(`${plan.name}: did not finish`);
+}
+
+/** One step in the alert queue: make a call that is waiting, open the next alert worth it, or go back. */
+async function workQueue(page: Page, plan: Plan): Promise<void> {
+  const real = (id: string): boolean => QUEUE.find((a) => a.id === id)!.real;
+  // an alert already open: make the call on it
+  const opened = page.locator(".alert.al-opened").first();
+  if (await opened.count()) {
+    const id = (await opened.getAttribute("data-alert"))!;
+    const escalate = plan.triage === "wrong" ? !real(id) : real(id);
+    await opened.locator(escalate ? ".al-escalate" : ".al-close").click();
+    return;
+  }
+  // otherwise open the real ones first, while there is time
+  const ids = await page.locator(".alert:has(.al-open:not([disabled]))").evaluateAll((els) => els.map((e) => e.getAttribute("data-alert")!));
+  const next = ids.find(real) ?? ids[0];
+  if (next) await page.locator(`.alert[data-alert="${next}"] .al-open`).click();
+  else await page.getByRole("button", { name: "Back to the desk" }).click();
 }
 
 /** Work one case in practice mode, from its brief back to the practice list. */
@@ -122,16 +152,32 @@ async function chooseInScene(page: Page, plan: Plan): Promise<void> {
   const prompt = await page.locator(".vn-choice-prompt").innerText();
   const scene = SCENES.find((s) => s.choice?.prompt === prompt);
   expect(scene, `scene with choice "${prompt}"`).toBeDefined();
-  const offered = await page.locator(".vn-choice .btn.choice").allInnerTexts();
+  // options an earlier choice closed are shown but cannot be taken
+  const offered = await page.locator(".vn-choice .btn.choice:not(.locked)").allInnerTexts();
   const options = scene!.choice!.options.filter((o) => offered.includes(o.text));
   const wanted = plan.scenes?.[scene!.id];
   const pick = wanted !== undefined ? scene!.choice!.options[wanted] : options[best(options)];
   expect(offered, `${scene!.id}: option "${pick.text}" is on offer`).toContain(pick.text);
-  await withText(page, ".vn-choice .btn.choice", pick.text).click();
+  await withText(page, ".vn-choice .btn.choice:not(.locked)", pick.text).click();
 }
 
 async function answerScreening(page: Page, track: Dept): Promise<void> {
   const card = page.locator(".iv-card");
+  // the hands-on task that ends the screening: do it on the tool, then submit
+  if (await page.locator(".iv-practical").count()) {
+    const next = page.getByRole("button", { name: "See the verdict" });
+    if (await next.count()) {
+      await next.click();
+      return;
+    }
+    const s = await save(page);
+    const p = practicalFor(track, s.seed, s.screeningFails);
+    const holder = { id: "practical", chapter: 0, dept: track, severity: "low", client: "", title: "", brief: [], evidence: p.evidence, questions: [p.question], xp: 0, closingRight: [] } as Ticket;
+    await answer(page, card.locator(".q-block"), p.question, { name: "x", track }, holder);
+    await page.getByRole("button", { name: "Submit answer" }).click();
+    await expect(card.locator(".explain.good"), `${track} hands-on task is right`).toBeVisible();
+    return;
+  }
   const prompt = await card.locator(".q-prompt").innerText();
   const q = screeningFor(track)!.questions.find((x: { prompt: string }) => x.prompt === prompt);
   expect(q, `screening question "${prompt}"`).toBeDefined();

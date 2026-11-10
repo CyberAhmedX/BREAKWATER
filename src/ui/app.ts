@@ -30,6 +30,9 @@ import { SCENES, sceneById } from "../content/scenes";
 import { CHAPTERS, chapterPlan } from "../content/chapters";
 import { SECRETS } from "../content/secrets";
 import { withRunData } from "../content/vary";
+import { QUEUE, queueAftermath, queueFor } from "../content/queue";
+import { ageOut, looksLeft, queueOpen, triageStats, waiting } from "../engine/triage";
+import { screenTriage } from "./triage";
 import { el, mount } from "./dom";
 import { type CloseGradeInfo, type Host, isVisible, speakerFor, stat } from "./host";
 import { screenTitle, screenTrack } from "./title";
@@ -235,11 +238,26 @@ export class App implements Host {
       queue.append(this.ticketCard(t, isDone(this.s, t.id)));
     }
 
+    // The alert queue: more comes in than there is time for. From chapter two.
+    const alerts = queueFor(this.s.chapter, this.s.seed);
+    const alertsOpen = queueOpen(this.s, alerts);
+    const alertPanel = alerts.length ? this.alertPanel(alerts, alertsOpen) : el("span");
+
     const footer = el("div", { class: "desk-footer" });
     if (allMainDone) {
       const cont = el("button", { class: "btn primary", type: "button", text: this.s.chapter === 5 ? "Face the storm" : "Continue the day" });
+      let warned = false;
       cont.addEventListener("click", () => {
         audio.click();
+        // leaving alerts unworked is allowed, but never by accident
+        if (alertsOpen && !warned) {
+          warned = true;
+          cont.textContent = "Alerts are still waiting. Tap again to let them age out";
+          return;
+        }
+        // the day ends: whatever was not called ages out
+        ageOut(this.s, alerts);
+        this.persist();
         this.runOutro(plan.outro, 0);
       });
       footer.append(cont);
@@ -248,7 +266,30 @@ export class App implements Host {
     }
 
     this.stage.className = "stage";
-    mount(this.stage, head, queue, footer);
+    mount(this.stage, head, queue, alertPanel, footer);
+  }
+
+  /** The alert queue's card on the desk: what is waiting, and a way in. */
+  private alertPanel(alerts: ReturnType<typeof queueFor>, open: boolean): HTMLElement {
+    const left = looksLeft(this.s, alerts);
+    const unopened = waiting(this.s, alerts).length;
+    const st = triageStats(this.s, alerts);
+    const note = open
+      ? unopened > 0 && left > 0
+        ? `${unopened} alert${unopened === 1 ? "" : "s"} waiting, and time to open ${left}. The rest age out when you continue.`
+        : "An alert is open and waiting for your call."
+      : st.calls > 0
+        ? `Worked. ${st.rightCalls} of ${st.calls} call${st.calls === 1 ? "" : "s"} right.`
+        : "Nothing left to work.";
+    const go = el("button", { class: open ? "btn primary small alert-queue-open" : "btn ghost small alert-queue-review", type: "button", text: open ? "Work the queue" : "Look back at the queue" });
+    go.addEventListener("click", () => {
+      audio.click();
+      screenTriage(this);
+    });
+    return el("div", { class: open ? "alert-panel" : "alert-panel worked" }, [
+      el("div", {}, [el("div", { class: "alert-panel-k", text: "Alert queue" }), el("p", { class: "alert-panel-note", text: note })]),
+      go,
+    ]);
   }
 
   private ticketCard(t: Ticket, done: boolean): HTMLElement {
@@ -369,11 +410,14 @@ export class App implements Host {
     const lines = [
       { who: "narration", text: `Epilogue. ${ending.epigraph}` },
       ...ending.lines.map((text) => ({ who: "narration", text })),
+      // the last night's alert queue: what you caught, and what you let go
+      ...queueAftermath(5),
       ...found.map((x) => ({ who: "narration", text: x.ending })),
     ];
     playDialogue(this, lines, undefined, () => {
       const con = conduct(this.s);
       const acc = Math.round(accuracy(this.s) * 100);
+      const triage = triageStats(this.s, QUEUE);
       const card = el("div", { class: "ending-card" }, [
         el("div", { class: "ending-kicker", text: "Ending" }),
         el("h1", { class: "ending-title", text: ending.title }),
@@ -385,6 +429,7 @@ export class App implements Host {
           stat("Botched", String(this.s.botched)),
           stat("Screenings failed", String(this.s.screeningFails)),
           stat("Secrets found", `${found.length} of ${SECRETS.length}`),
+          ...(triage.real > 0 ? [stat("Real alerts caught", `${triage.caught} of ${triage.real}`)] : []),
           ...(this.s.hard ? [stat("Mode", "Hard")] : []),
         ]),
       ]);

@@ -8,6 +8,7 @@ import {
   hasFlag,
   hasAll,
   hasNone,
+  choiceLock,
   visibleLines,
   markDone,
   isDone,
@@ -51,6 +52,71 @@ describe("conditional dialogue lines", () => {
   it("skips the evidence choice after a failed containment", () => {
     const evidence = SCENES.find((sc) => sc.id === "s5_evidence");
     expect(evidence?.hideIf).toContain(FINALE_FAILED);
+  });
+});
+
+describe("earlier choices close endings", () => {
+  const evidence = SCENES.find((sc) => sc.id === "s5_evidence")!.choice!.options;
+  const report = evidence.find((o) => o.setFlags?.includes(F.reportedOut))!;
+  const nadia = evidence.find((o) => o.setFlags?.includes(F.gaveNadia))!;
+  const cover = evidence.find((o) => o.setFlags?.includes(F.coveredUp))!;
+  const CH3 = [F.trustNadia, F.toldMags, F.toldWalter];
+  const run = (...flags: string[]): ReturnType<typeof freshSave> => {
+    const s = freshSave();
+    flags.forEach((f) => setFlag(s, f));
+    return s;
+  };
+
+  it("a lock applies only when all of its flags are set and none of its excluded ones", () => {
+    const opt = { text: "x", locks: [{ all: ["a", "b"], none: ["c"], note: "closed" }] };
+    expect(choiceLock(run(), opt)).toBeNull();
+    expect(choiceLock(run("a"), opt)).toBeNull();
+    expect(choiceLock(run("a", "b"), opt)).toBe("closed");
+    expect(choiceLock(run("a", "b", "c"), opt)).toBeNull();
+    expect(choiceLock(run("a"), { text: "no locks" })).toBeNull();
+  });
+
+  it("reporting externally is never closed", () => {
+    for (const ch3 of CH3) for (const ch4 of [[], [F.buriedTruth]]) expect(choiceLock(run(ch3, ...ch4), report)).toBeNull();
+  });
+
+  it("Low Tide needs her trust: closed by telling Walter, or by taking his promotion", () => {
+    expect(choiceLock(run(F.trustNadia), nadia)).toBeNull();
+    expect(choiceLock(run(F.toldMags), nadia)).toBeNull();
+    expect(choiceLock(run(F.toldWalter), nadia)).toContain("chapter three");
+    expect(choiceLock(run(F.trustNadia, F.buriedTruth), nadia)).toContain("chapter four");
+    expect(choiceLock(run(F.toldMags, F.buriedTruth), nadia)).toContain("chapter four");
+  });
+
+  it("Company Keeper is closed once Mags holds the message, unless you took the promotion", () => {
+    expect(choiceLock(run(F.trustNadia), cover)).toBeNull();
+    expect(choiceLock(run(F.toldWalter), cover)).toBeNull();
+    expect(choiceLock(run(F.toldMags), cover)).toContain("Mags");
+    expect(choiceLock(run(F.toldMags, F.buriedTruth), cover)).toBeNull();
+  });
+
+  it("every path through chapters three and four leaves at least two ways to end it", () => {
+    for (const ch3 of CH3) {
+      for (const ch4 of [[], [F.buriedTruth]]) {
+        const s = run(ch3, ...ch4);
+        const open = evidence.filter((o) => choiceLock(s, o) === null);
+        expect(open.length, `${ch3} + ${ch4.join("") || "declined"}`).toBeGreaterThanOrEqual(2);
+      }
+    }
+    // hearing her out and turning Walter down keeps everything on the table
+    expect(evidence.filter((o) => choiceLock(run(F.trustNadia), o) === null)).toHaveLength(3);
+  });
+
+  it("the clean containment is closed by an open door or a botched finale case, and says which", () => {
+    const contain = SCENES.find((sc) => sc.id === "s5_contain")!.choice!.options;
+    const clean = contain.find((o) => o.setFlags?.includes(FINALE_SUCCESS))!;
+    expect(choiceLock(run(), clean)).toBeNull();
+    expect(choiceLock(run(F.openDoor), clean)).toContain("chapter four");
+    for (const id of ["t5_plant_recon", "t5_network", "t5_helpdesk", "t5_forensics", "t5_pentest", "t5_intel"]) {
+      expect(choiceLock(run(`botched_${id}`), clean), id).toContain("botched");
+    }
+    // the other two are always there, so the scene never dead-ends
+    expect(contain.filter((o) => !o.locks).length).toBe(2);
   });
 });
 

@@ -497,6 +497,15 @@ export interface SceneLine {
   showIf?: Flag[]; // line only shown if all these flags are present
 }
 
+// A reason an option is closed. It applies when every flag in `all` is set and
+// no flag in `none` is. A closed option is still shown, with its note, so the
+// player can see which earlier choice shut it.
+export interface ChoiceLock {
+  all?: Flag[];
+  none?: Flag[];
+  note: string;
+}
+
 export interface SceneChoice {
   text: string;
   setFlags?: Flag[];
@@ -505,6 +514,7 @@ export interface SceneChoice {
   reply?: SceneLine[]; // immediate response lines
   requires?: Flag[]; // option only offered if all these flags are present
   hideIf?: Flag[]; // option hidden if any of these flags are present
+  locks?: ChoiceLock[]; // shown but closed if any of these applies
 }
 
 export interface Scene {

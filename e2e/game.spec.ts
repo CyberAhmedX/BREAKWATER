@@ -33,7 +33,7 @@ test("one full run, then every other ending through chapter select", async ({ pa
   expect((await save(page)).flags).toContain("secret_forensics");
 
   const clean = await meta(page);
-  for (const id of ["first_try", "chain", "lead", "by_the_book", "clean_hands", "no_hints", "side_work"]) {
+  for (const id of ["first_try", "chain", "lead", "by_the_book", "clean_hands", "no_hints", "side_work", "signal"]) {
     expect(clean.achievements, id).toContain(id);
   }
 
@@ -41,11 +41,14 @@ test("one full run, then every other ending through chapter select", async ({ pa
   await replayChapter(page, "Chapter Three");
   expect(await play(page, { ...base, decisions: { q_clinic_walter: 1 } })).toBe(ENDINGS.crackedlens.title);
 
-  // The last chapter decides the rest.
+  // This run took BRACKISH's message to Mags and turned Walter down, so she
+  // will still take the evidence in the last chapter.
   await replayChapter(page, "Chapter Five");
   expect(await play(page, { ...base, scenes: { s5_evidence: 1 } })).toBe(ENDINGS.lowtide.title);
-  await replayChapter(page, "Chapter Five");
-  expect(await play(page, { ...base, scenes: { s5_evidence: 2 } })).toBe(ENDINGS.keeper.title);
+  // Keeping it inside the company is closed while Mags holds that message,
+  // unless you go back and take Walter's promotion in chapter four.
+  await replayChapter(page, "Chapter Four");
+  expect(await play(page, { ...base, scenes: { s4_walter_offer: 0, s5_evidence: 2 } })).toBe(ENDINGS.keeper.title);
   await replayChapter(page, "Chapter Five");
   expect(await play(page, { ...base, scenes: { s5_contain: 1 } })).toBe(ENDINGS.deadwater.title);
 
@@ -100,6 +103,103 @@ test("each team plays its own live finale to an ending", async ({ page }) => {
     const ending = await play(page, { name: "Fin", track });
     expect(ending, `${track} reaches an ending`).not.toBeNull();
   }
+  expect(errors).toEqual([]);
+});
+
+test("an ending closed by an earlier choice is shown with the reason", async ({ page }) => {
+  test.setTimeout(60_000);
+  const at = async (flags: string[]): Promise<void> => {
+    await page.goto(GAME);
+    await page.evaluate((f) => {
+      localStorage.setItem("breakwater.save.v1", JSON.stringify({ version: 1, playerName: "Gate", track: "soc", hired: true, chapter: 5, xp: 600, integrity: 4, flags: ["track_soc", "knows_truth", "finale_ready", "finale_contained", "intro_5", ...f], done: ["intro_5", "t5_plant_recon", "s5_contain"], codex: [], screeningScore: 5, cleanCloses: 9, totalCloses: 9, botched: 0, screeningFails: 0, hintsUsed: 0, hard: false, seed: 7, triage: Object.fromEntries(["q5_ups", "q5_payroll", "q5_door", "q5_dns", "q5_factor"].map((id) => [id, "aged"])) }));
+      localStorage.setItem("breakwater.meta.v1", JSON.stringify({ version: 1, endings: [], achievements: [], codexEver: [], casesEver: [], secretsEver: [], checkpoints: {}, settings: { music: 0, effects: 0, muted: true, textScale: 1, reducedMotion: true, relaxedTimers: false, fastDialogue: true } }));
+    }, flags);
+    await page.reload();
+    await page.getByRole("button", { name: /^Continue as/ }).click();
+    await page.locator(".desk-footer .btn.primary").click();
+    while (await page.locator(".vn[role=button]").count()) await page.locator(".vn[role=button]").click();
+    await expect(page.locator(".vn-choice-prompt")).toHaveText("What do you do with the evidence?");
+  };
+  const open = page.locator(".vn-choice .btn.choice:not(.locked)");
+  const closed = page.locator(".vn-choice .btn.choice.locked");
+
+  // took her message to Mags, turned Walter down: the cover-up is closed
+  await at(["told_mags"]);
+  await expect(open).toHaveCount(2);
+  await expect(closed).toHaveCount(1);
+  await expect(closed).toContainText("keep the St. Brennan's link inside the company");
+  await expect(closed.locator(".choice-lock")).toContainText("Mags");
+  await expect(closed).toBeDisabled();
+
+  // handed her to Walter: she will not take the evidence
+  await at(["told_walter_about_message"]);
+  await expect(open).toHaveCount(2);
+  await expect(closed).toContainText("Give the evidence to BRACKISH");
+  await expect(closed.locator(".choice-lock")).toContainText("chapter three");
+
+  // heard her out and turned Walter down: everything is on the table
+  await at(["trusted_nadia"]);
+  await expect(open).toHaveCount(3);
+  await expect(closed).toHaveCount(0);
+});
+
+test("alerts left to age out, and alerts caught, come back in the next chapter", async ({ page }) => {
+  test.setTimeout(90_000);
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+  // the end of chapter two for a help desk hire, with every case closed and the queue untouched
+  const start = async (): Promise<void> => {
+    await page.goto(GAME);
+    await page.evaluate(() => {
+      localStorage.setItem("breakwater.save.v1", JSON.stringify({ version: 1, playerName: "Queue", track: "helpdesk", hired: true, chapter: 2, xp: 300, integrity: 1, flags: ["track_helpdesk", "seen_brightloaf"], done: ["intro_1", "t1_bakery_phish", "s1_outro", "intro_2", "t2_bakery_bec", "t2_school_dns", "tr_helpdesk"], codex: [], screeningScore: 5, cleanCloses: 4, totalCloses: 4, botched: 0, screeningFails: 0, hintsUsed: 0, hard: false, seed: 3, triage: {} }));
+      localStorage.setItem("breakwater.meta.v1", JSON.stringify({ version: 1, endings: [], achievements: [], codexEver: [], casesEver: [], secretsEver: [], checkpoints: {}, settings: { music: 0, effects: 0, muted: true, textScale: 1, reducedMotion: true, relaxedTimers: false, fastDialogue: true } }));
+    });
+    await page.reload();
+    await page.getByRole("button", { name: /^Continue as/ }).click();
+    await expect(page.locator(".alert-panel-note")).toContainText("5 alerts waiting, and time to open 3");
+  };
+  // the opening scene of chapter three, laid out at once by fast dialogue
+  const nextMorning = async (): Promise<string> => {
+    await expect(page.locator(".vn-text").first()).toContainText("Two of your cases this week");
+    await page.locator(".vn[role=button]").click();
+    await expect(page.locator(".vn-text").first()).toContainText("Rain at last");
+    return page.locator(".vn").innerText();
+  };
+  const cont = page.locator(".desk-footer .btn.primary");
+
+  // leave the whole queue: the game asks once, then lets the day end
+  await start();
+  await cont.click();
+  await expect(cont).toContainText("Alerts are still waiting");
+  await cont.click();
+  let morning = await nextMorning();
+  expect(morning).toContain("The harbormaster's mailbox was read from the other side of the world");
+  expect(morning).toContain("It aged out.");
+  let s = await save(page);
+  expect(s.flags).toEqual(expect.arrayContaining(["triage_missed:q2_travel", "triage_missed:q2_admin"]));
+
+  // catch both real ones: no warning on the way out, and the morning goes differently
+  await start();
+  await page.locator(".alert-queue-open").click();
+  for (const id of ["q2_travel", "q2_admin"]) {
+    await page.locator(`.alert[data-alert="${id}"] .al-open`).click();
+    await page.locator(`.alert[data-alert="${id}"] .al-escalate`).click();
+    await expect(page.locator(`.alert[data-alert="${id}"] .explain.good`)).toContainText("Right call");
+  }
+  // the third look goes on a loud one, called wrongly
+  await page.locator('.alert[data-alert="q2_backup"] .al-open').click();
+  await expect(page.locator(".alert .al-open").first()).toBeDisabled();
+  await page.locator('.alert[data-alert="q2_backup"] .al-escalate').click();
+  await expect(page.locator('.alert[data-alert="q2_backup"] .explain.bad')).toContainText("Wrong call");
+  await page.getByRole("button", { name: "Back to the desk" }).click();
+  await expect(page.locator(".alert-panel-note")).toContainText("2 of 3 calls right");
+  await cont.click();
+  morning = await nextMorning();
+  expect(morning).toContain("Theo reset it before they had read a single message");
+  expect(morning).toContain("The technician sends biscuits.");
+  expect(morning).not.toContain("aged out");
+  s = await save(page);
+  expect(s.flags).toEqual(expect.arrayContaining(["triage_caught:q2_travel", "triage_caught:q2_admin"]));
   expect(errors).toEqual([]);
 });
 

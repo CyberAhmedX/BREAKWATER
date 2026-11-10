@@ -5,6 +5,7 @@ import { ENDINGS, F } from "./endings";
 import { CODEX } from "../content/codex";
 import { CHAPTERS } from "../content/chapters";
 import { SECRETS } from "../content/secrets";
+import { QUEUE } from "../content/queue";
 
 // Achievements only come from how you actually played. None of them can be
 // bought, ground out, or earned by doing something and undoing it.
@@ -72,6 +73,12 @@ export const ACHIEVEMENTS: Achievement[] = [
     title: "Side Work",
     desc: "Close every side case in a single run.",
     earned: (s) => CHAPTERS.flatMap((c) => c.side).every((id) => s.done.includes(id)),
+  },
+  {
+    id: "signal",
+    title: "Signal and Noise",
+    desc: "Finish a run having escalated every real alert in the queue.",
+    earned: (s) => finished(s) && QUEUE.filter((a) => a.real).every((a) => s.triage[a.id] === "escalated"),
   },
   {
     id: "well_read",

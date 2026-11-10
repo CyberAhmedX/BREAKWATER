@@ -1,5 +1,6 @@
 import type { Scene } from "../engine/types";
 import { F, FINALE_SUCCESS, FINALE_FAILED } from "../engine/endings";
+import { queueAftermath } from "./queue";
 
 // Narrative beats. Some just set the scene; a few are decisions that set the
 // flags the ending resolver reads. No em dashes anywhere, by design.
@@ -31,6 +32,7 @@ export const SCENES: Scene[] = [
     lines: [
       { who: "narration", text: "Overcast now. The lighthouse beam is just visible through grey. Someone has turned on the desk lamps early." },
       { who: "mags", text: "You are off the easy queue. Real cases today. Read everything before you touch anything. Logs do not lie. People summarize them badly." },
+      { who: "mags", text: "The alert queue is yours as well now. More comes in than anyone has time for. Open the ones that matter, make the call, and let the rest age out. Choosing is the job." },
     ],
   },
   {
@@ -46,6 +48,8 @@ export const SCENES: Scene[] = [
     chapter: 3,
     lines: [
       { who: "narration", text: "Rain at last, hard against the windows. The office is lamplight and shadow now, the cozy kind, if you ignore what you are about to read." },
+      // what became of yesterday's alert queue
+      ...queueAftermath(2),
       { who: "imani", text: "The clinic sent us a laptop. We all handle it right, together, and then each of us checks what it means in our own way. And we are very, very careful about one small word: who." },
     ],
   },
@@ -74,7 +78,7 @@ export const SCENES: Scene[] = [
         },
         {
           text: "Handle it by the book. Take the message straight to Mags.",
-          setFlags: ["told_mags"],
+          setFlags: [F.toldMags],
           integrity: 1,
           reply: [
             { who: "mags", text: "You were right to bring this to me and not sit on it. I do not know who BRACKISH is. I do know everything they said about HarborWatch checks out. Keep your head down and keep documenting." },
@@ -98,6 +102,7 @@ export const SCENES: Scene[] = [
     chapter: 4,
     lines: [
       { who: "narration", text: "A full gale now. Lightning throws the office white, then dark. Everyone is working late and nobody is saying why." },
+      ...queueAftermath(3),
       { who: "juno", text: "The crew calling themselves the Tollkeepers just moved on the water plant. Ransomware, loud and fast. That is not the quiet visitor who has been collecting proof. That is something else, and it is circling." },
       { who: "rook", text: "And tonight, in your own corner of this, someone is going to ask you to bend one rule, just once, for a good reason. That is the real test. Do not." },
     ],
@@ -144,6 +149,8 @@ export const SCENES: Scene[] = [
     id: "s5_intro",
     chapter: 5,
     lines: [
+      // the gale's alert queue, settled before the lights go
+      ...queueAftermath(4),
       { who: "narration", text: "The storm takes the grid at 21:40. Emergency lights snap on, everything washed in red. The lighthouse keeps turning on its own generator, patient as ever." },
       { who: "narration", text: "Then the alert from Halden Water and Light. Someone is inside, moving toward the one network that must never be touched: the controls that keep the town's water safe." },
       { who: "narration", text: "This is not the quiet visitor who has been gathering proof. This is the Tollkeepers, the ransomware crew, moving fast with the one shared password that still works." },
@@ -163,9 +170,15 @@ export const SCENES: Scene[] = [
         {
           // The clean save is only on the table if you kept the boundary tight
           // and read the recon properly. Leave a door open or botch the recon
-          // and this option is gone.
+          // and this option is closed, and the game says which of the two did it.
           text: "Cut it at the root: disable the HarborWatch shared credential everywhere and isolate the jump box from the OT boundary.",
-          hideIf: [F.openDoor, "botched_t5_plant_recon", "botched_t5_network", "botched_t5_helpdesk", "botched_t5_forensics", "botched_t5_pentest", "botched_t5_intel"],
+          locks: [
+            { all: [F.openDoor], note: "Closed. The door you opened in chapter four is already their way past the jump box. Cutting the credential now comes too late to hold the boundary." },
+            ...["t5_plant_recon", "t5_network", "t5_helpdesk", "t5_forensics", "t5_pentest", "t5_intel"].map((id) => ({
+              all: [`botched_${id}`],
+              note: "Closed. The case you botched tonight was your part of this. Without it, nobody in the room can say for certain where to cut.",
+            })),
+          ],
           setFlags: [FINALE_SUCCESS],
           integrity: 2,
           reply: [
@@ -218,10 +231,14 @@ export const SCENES: Scene[] = [
           ],
         },
         {
-          // Only on offer if you never handed her to Walter back in chapter
-          // three. Sell her out then and she will not trust you with the story.
+          // Open only if you never handed her to Walter in chapter three and
+          // never took his promotion in chapter four. Do either and she will
+          // not trust you with the story.
           text: "Give the evidence to BRACKISH so she can publish it herself.",
-          hideIf: [F.toldWalter],
+          locks: [
+            { all: [F.toldWalter], note: "Closed. In chapter three you took her first message straight to Walter. She will not take anything from you now." },
+            { all: [F.buriedTruth], note: "Closed. In chapter four you took Walter's promotion to keep St. Brennan's buried. She will not take anything from you now." },
+          ],
           setFlags: [F.gaveNadia],
           integrity: 0,
           reply: [
@@ -230,7 +247,10 @@ export const SCENES: Scene[] = [
           ],
         },
         {
+          // Once Mags has BRACKISH's message it is no longer yours alone to
+          // bury, unless you have since thrown in with Walter.
           text: "Stop the attack, but keep the St. Brennan's link inside the company.",
+          locks: [{ all: [F.toldMags], none: [F.buriedTruth], note: "Closed. In chapter three you took BRACKISH's message to Mags, and she has held it ever since. This stopped being yours to bury that night." }],
           setFlags: [F.coveredUp],
           integrity: -2,
           reply: [

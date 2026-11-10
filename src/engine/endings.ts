@@ -11,6 +11,7 @@ export const F = {
   chainIntact: "evidence_chain_intact", // chain of custody never broken
   chainBroken: "evidence_chain_broken",
   trustNadia: "trusted_nadia", // gave BRACKISH the benefit of the doubt
+  toldMags: "told_mags", // took her first message to Mags, by the book
   toldWalter: "told_walter_about_message",
   buriedTruth: "agreed_to_bury", // took Walter's promotion to hide St. Brennan's
   openDoor: "left_firewall_open", // approved the allow-any rule
@@ -101,6 +102,12 @@ export const ENDINGS: Record<string, Ending> = {
 // Reporting externally reaches The Lighthouse only with a clean chain of
 // custody and conduct to match; a compromised record behind the same report
 // leads to Cracked Lens instead. A failed finale always lands in Dead Water.
+//
+// Which evidence choices are open at all is decided earlier (see the locks on
+// s5_evidence in content/scenes.ts). Low Tide needs BRACKISH's trust: closed
+// if you handed her to Walter in chapter three or took his promotion in
+// chapter four. Company Keeper is closed once Mags holds her message, unless
+// you took that promotion. Every combination leaves at least two ways out.
 export const LIGHTHOUSE_MIN_INTEGRITY = 3;
 
 // The order the endings gallery lists them in.

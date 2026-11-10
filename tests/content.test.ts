@@ -20,6 +20,11 @@ import { checkReport } from "../src/engine/report";
 import { ATTACK_CATALOGUE } from "../src/content/attack";
 import { trackFlag } from "../src/engine/state";
 import { VARYING_CASES, withRunData } from "../src/content/vary";
+import { practicalFor } from "../src/content/practicals";
+import { QUEUE, QUEUE_SIZE, queueFor, queueAftermath } from "../src/content/queue";
+import { looksAllowed } from "../src/engine/triage";
+import { freshSave } from "../src/engine/state";
+import type { Ticket } from "../src/engine/types";
 
 // Some cases are rebuilt from the run's seed. Every rule below that judges a
 // case on its own is checked against the catalogue and against those cases as
@@ -27,6 +32,11 @@ import { VARYING_CASES, withRunData } from "../src/content/vary";
 const SEEDS = [1, 7, 42, 99, 1000, 123456, 20260310, 2 ** 31, 4294967295];
 const VARIANTS = VARYING_CASES.flatMap((id) => SEEDS.map((seed) => withRunData(TICKETS.find((t) => t.id === id)!, seed)));
 const EVERY = [...TICKETS, ...VARIANTS];
+
+// The hands-on task that ends each screening, as many different sittings see it.
+const PRACTICALS = DEPTS.flatMap((dept) => SEEDS.flatMap((seed) => [0, 1, 2].map((fails) => ({ dept, seed, fails, p: practicalFor(dept, seed, fails) }))));
+// wrapped as cases, so the text rules below read them like any other
+const PRACTICAL_CASES: Ticket[] = PRACTICALS.map(({ dept, p }) => ({ id: `practical_${dept}`, chapter: 0, dept, severity: "low", client: "", title: p.intro, brief: [p.howTo], evidence: p.evidence, questions: [p.question], xp: 0, closingRight: [] }));
 
 // Gather every string of player-facing text so we can assert house rules on it.
 function allText(): string[] {
@@ -46,7 +56,7 @@ function allText(): string[] {
       push(q.explainWrong);
     }
   }
-  for (const t of EVERY) {
+  for (const t of [...EVERY, ...PRACTICAL_CASES]) {
     push(t.title);
     (t.attack ?? []).forEach((a) => push(a.name));
     (t.takeaways ?? []).forEach((x) => {
@@ -205,6 +215,10 @@ function allText(): string[] {
       }
     }
   }
+  for (const a of QUEUE) {
+    [a.title, a.source, a.why, a.caught, a.missed].forEach(push);
+    a.details.forEach(push);
+  }
   for (const s of SCENES) {
     s.lines.forEach((l) => push(l.text));
     if (s.choice) {
@@ -212,6 +226,7 @@ function allText(): string[] {
       for (const o of s.choice.options) {
         push(o.text);
         o.reply?.forEach((l) => push(l.text));
+        o.locks?.forEach((l) => push(l.note));
       }
     }
   }
@@ -629,5 +644,119 @@ describe("detection rule and report questions", () => {
       expect(t.live.seconds, t.id).toBeGreaterThanOrEqual(60);
       expect(t.live.seconds, t.id).toBeLessThanOrEqual(600);
     }
+  });
+});
+
+describe("screening hands-on tasks", () => {
+  it("every team has one, and the task can be done and can be failed", () => {
+    for (const { dept, seed, fails, p } of PRACTICALS) {
+      const tag = `${dept}/${seed}/${fails}`;
+      const q = p.question;
+      expect(p.intro.length, tag).toBeGreaterThan(20);
+      expect(p.howTo.length, tag).toBeGreaterThan(20);
+      expect(q.hint, `${tag}: a screening gives no hints`).toBeUndefined();
+      if (q.type === "typed") {
+        const ev = p.evidence.find((e) => e.id === q.solution!.evidence)!;
+        const r = runSolution(ev, q.solution!.command);
+        expect(r.error, `${tag}: ${r.out}`).toBeFalsy();
+        expect(normalizeAnswer(r.out), tag).toContain(normalizeAnswer(q.answer[0]));
+        expect(answerMatches(q.answer[0], q.answer), tag).toBe(true);
+      } else if (q.type === "spot") {
+        const keys = new Set(pickTargets(p.evidence.find((e) => e.id === q.evidence)!).map((k) => k.key));
+        for (const a of q.answer) expect(keys.has(a), `${tag}: ${a}`).toBe(true);
+        expect(keys.size, tag).toBeGreaterThan(q.answer.length);
+      } else if (q.type === "rules") {
+        const ev = p.evidence.find((e) => e.id === q.evidence)!;
+        if (ev.kind !== "firewall") throw new Error(tag);
+        expect(rulesPass(q.solution, ev.flows, ev.zones), `${tag}: solution`).toBe(true);
+        expect(rulesPass(ev.rules, ev.flows, ev.zones), `${tag}: start already passes`).toBe(false);
+      } else if (q.type === "scope") {
+        const ev = p.evidence.find((e) => e.id === q.evidence)!;
+        if (ev.kind !== "scope") throw new Error(tag);
+        const v = q.targets.map((x) => checkScope(ev, x.address).inScope);
+        expect(v.some(Boolean), tag).toBe(true);
+        expect(v.some((x) => !x), tag).toBe(true);
+      } else {
+        throw new Error(`${tag}: a ${q.type} task has no check here`);
+      }
+    }
+  });
+
+  it("a retry gets a different task, and the same sitting always gets the same one", () => {
+    for (const dept of DEPTS) {
+      expect(JSON.stringify(practicalFor(dept, 42, 0))).toBe(JSON.stringify(practicalFor(dept, 42, 0)));
+      const seen = new Set(Array.from({ length: 12 }, (_, fails) => JSON.stringify(practicalFor(dept, 42, fails).question)));
+      expect(seen.size, dept).toBeGreaterThan(1);
+    }
+  });
+
+  it("a screening still asks the same number of things, one of them hands-on", () => {
+    for (const iv of SCREENINGS) expect(iv.asks - 1, iv.dept).toBeGreaterThanOrEqual(iv.passLine);
+  });
+});
+
+describe("the alert queue", () => {
+  const chapters = [2, 3, 4, 5] as const;
+
+  it("every chapter from two on brings more alerts than there is time for", () => {
+    expect(queueFor(1, 42)).toEqual([]);
+    for (const ch of chapters) {
+      const q = queueFor(ch, 42);
+      expect(q.length, `chapter ${ch}`).toBe(QUEUE_SIZE);
+      expect(q.length).toBeGreaterThan(looksAllowed(freshSave()));
+      // every real one can be caught, with a look to spare, and there is noise to wade through
+      const real = q.filter((a) => a.real).length;
+      expect(real, `chapter ${ch}`).toBeGreaterThanOrEqual(1);
+      expect(real).toBeLessThanOrEqual(looksAllowed({ ...freshSave(), hard: true }));
+      expect(q.length - real).toBeGreaterThanOrEqual(2);
+    }
+    expect(new Set(QUEUE.map((a) => a.id)).size).toBe(QUEUE.length);
+  });
+
+  it("the tool's severity does not give the answer away", () => {
+    // if every real alert were the loudest, sorting by severity would be the whole job
+    const loud = (s: string): boolean => s === "high" || s === "critical";
+    expect(QUEUE.filter((a) => a.real && loud(a.severity)).length).toBeLessThan(QUEUE.filter((a) => a.real).length / 2);
+    expect(QUEUE.filter((a) => !a.real && loud(a.severity)).length).toBeGreaterThan(0);
+    for (const ch of chapters) {
+      const q = QUEUE.filter((a) => a.chapter === ch);
+      expect(q.some((a) => !a.real && loud(a.severity)), `chapter ${ch} has loud noise`).toBe(true);
+    }
+  });
+
+  it("each alert has enough to make the call on, and a reason", () => {
+    for (const a of QUEUE) {
+      expect(a.details.length, a.id).toBeGreaterThanOrEqual(2);
+      expect(a.why.length, a.id).toBeGreaterThan(40);
+      expect(a.title.length, a.id).toBeLessThan(60);
+    }
+  });
+
+  it("every real alert comes back in the story, caught or missed, and benign ones never do", () => {
+    for (const a of QUEUE) {
+      if (a.real) {
+        expect(a.caught?.length ?? 0, a.id).toBeGreaterThan(30);
+        expect(a.missed?.length ?? 0, a.id).toBeGreaterThan(30);
+      } else {
+        expect(a.caught, a.id).toBeUndefined();
+        expect(a.missed, a.id).toBeUndefined();
+      }
+    }
+    // chapters two to four speak in the next chapter's opening scene; five is the epilogue
+    for (const [ch, scene] of [[2, "s3_intro"], [3, "s4_intro"], [4, "s5_intro"]] as const) {
+      const lines = SCENES.find((s) => s.id === scene)!.lines;
+      for (const l of queueAftermath(ch)) {
+        expect(lines).toContainEqual(l);
+        expect(l.who, `${scene} is spoken`).not.toBe("narration");
+        expect(l.showIf?.length).toBe(1);
+      }
+    }
+    for (const l of queueAftermath(5)) expect(l.who).toBe("narration");
+  });
+
+  it("the order follows the run, and is the same every time for that run", () => {
+    expect(queueFor(3, 7).map((a) => a.id)).toEqual(queueFor(3, 7).map((a) => a.id));
+    const orders = new Set(Array.from({ length: 20 }, (_, seed) => queueFor(3, seed).map((a) => a.id).join()));
+    expect(orders.size).toBeGreaterThan(1);
   });
 });

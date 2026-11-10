@@ -254,6 +254,42 @@ body {
   background: #10141c;
 }
 
+/* ------------------------------------------------------------------ alert queue */
+.alert-panel {
+  max-width: 900px;
+  box-sizing: border-box;
+  margin: 16px auto 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: var(--panel);
+  border: 1px solid rgba(70, 198, 184, 0.45);
+  box-shadow: var(--shadow);
+}
+.alert-panel.worked { border-color: var(--edge); }
+.alert-panel-k { font-family: var(--display); font-size: calc(11px * var(--ts)); letter-spacing: 1px; text-transform: uppercase; color: var(--teal); }
+.alert-panel.worked .alert-panel-k { color: var(--muted); }
+.alert-panel-note { margin: 4px 0 0; color: var(--fg-dim); font-size: calc(14px * var(--ts)); }
+.alert-panel .btn { flex: none; }
+.triage-list { max-width: 900px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; }
+.stage.triage .coach { max-width: 900px; box-sizing: border-box; margin: 0 auto 14px; background: #10262b; }
+.alert { background: var(--panel); border: 1px solid var(--edge); border-radius: 12px; padding: 14px 16px; box-shadow: var(--shadow); }
+.alert .tk-top { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+.alert .al-source { color: var(--muted); font-size: calc(13px * var(--ts)); }
+.alert .tk-title { margin-bottom: 10px; }
+.alert.al-opened { border-color: var(--amber); }
+.alert.al-aged { opacity: 0.6; }
+.al-details { margin: 0 0 12px; padding-left: 18px; color: var(--fg-dim); font-size: calc(14px * var(--ts)); }
+.al-details li { margin: 3px 0; }
+.al-verdict { font-weight: 600; margin: 0 0 4px; }
+.alert .al-verdict.muted { font-weight: 400; margin: 0; }
+@media (max-width: 620px) {
+  .alert-panel { flex-direction: column; align-items: stretch; }
+}
+
 /* ------------------------------------------------------------------ screening */
 .card-panel {
   max-width: 720px;
@@ -267,6 +303,11 @@ body {
 .iv-head { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
 .iv-who { font-family: var(--display); font-size: calc(13px * var(--ts)); color: var(--amber); }
 .iv-count { font-size: calc(12px * var(--ts)); color: var(--muted); }
+/* the hands-on task that ends a screening: wider, with the tool above the answer */
+.iv-practical { max-width: 860px; }
+.iv-practical .ev-panel { margin: 12px 0 16px; }
+.iv-practical .q-panel { margin-bottom: 12px; }
+.iv-say { font-size: calc(15px * var(--ts)); color: var(--fg); margin: 0 0 4px; }
 .q-prompt { font-size: calc(16px * var(--ts)); font-weight: 500; margin: 6px 0 14px; }
 .q-opts { display: flex; flex-direction: column; gap: 8px; }
 .q-opts.decision { gap: 10px; }
@@ -493,6 +534,11 @@ table.log, table.flow { width: 100%; border-collapse: collapse; font-family: var
 .vn-choice-prompt { font-size: calc(15px * var(--ts)); color: var(--amber-soft); margin: 0 0 4px; }
 .btn.choice { text-align: left; background: var(--panel-soft); border-color: var(--edge-warm); }
 .btn.choice:hover { border-color: var(--amber); background: rgba(228, 169, 74, 0.1); }
+/* a story option an earlier choice closed: shown, with the reason, but not takeable */
+.btn.choice.locked { display: flex; flex-direction: column; gap: 4px; cursor: not-allowed; opacity: 1; background: rgba(12, 17, 24, 0.5); border-style: dashed; border-color: var(--edge); }
+.btn.choice.locked:hover { border-color: var(--edge); background: rgba(12, 17, 24, 0.5); }
+.btn.choice.locked .choice-text { color: var(--muted); text-decoration: line-through; }
+.btn.choice.locked .choice-lock { color: var(--amber-soft); font-size: calc(13px * var(--ts)); }
 
 @keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 @keyframes blink { 0%, 100% { opacity: 0.7; } 50% { opacity: 1; } }
