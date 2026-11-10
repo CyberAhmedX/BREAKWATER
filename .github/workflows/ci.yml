@@ -32,7 +32,10 @@ jobs:
   # Plays the built game in a real browser: one full run, every ending, and
   # each career track's own case.
   e2e:
-    runs-on: ubuntu-latest
+    # Pinned: the Playwright version in package.json cannot install its browser
+    # on Ubuntu 26.04, which ubuntu-latest now resolves to. Move this back to
+    # ubuntu-latest when Playwright is upgraded.
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
