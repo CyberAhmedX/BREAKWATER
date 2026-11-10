@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  <img src="media/demo.gif" alt="Breakwater gameplay: applying, screening, and working a case" width="720">
+  <img src="media/demo.gif" alt="Breakwater gameplay: applying, the hands-on screening task, the alert queue, and the live finale" width="720">
 </p>
 
 <p align="center"><i>A breakwater holds the storm back so the harbor stays calm. Lanternhouse Security is the breakwater.</i></p>
@@ -40,6 +40,11 @@ It is built for students and people getting ready for a first SOC or help desk j
 | :---: | :---: |
 | ![Searching a SIEM for the password spray](media/tool-siem.png) | ![A live incident at the boundary firewall](media/live-finale.png) |
 | **Real tools: a SIEM, a terminal, a firewall, a request editor and more** | **A live incident where every wrong move costs time** |
+
+| More alerts than there is time for | Keep a record of what you did |
+| :---: | :---: |
+| ![The alert queue in chapter two](media/alert-queue.png) | ![The skills summary](media/skills-summary.png) |
+| **Five alerts, time for three, and the loud ones are mostly noise** | **The tools you used, the techniques you met, and how the run went** |
 
 The office darkens with the story: cozy and sunlit at first, then rain, then a storm blackout lit by emergency red. Lighting, weather, and the soundtrack all shift per chapter.
 

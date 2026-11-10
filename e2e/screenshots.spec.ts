@@ -143,3 +143,59 @@ test("screenshot: tool-siem", async ({ page }) => {
   await page.waitForTimeout(600);
   await page.screenshot({ path: "media/tool-siem.png" });
 });
+
+// Chapter 2: the alert queue, with one loud alert already called as noise and a quiet real one open
+const QUEUE_SAVE = JSON.stringify({
+  version: 1, playerName: "Riley", track: "soc", hired: true,
+  chapter: 2, xp: 60, integrity: 1,
+  flags: ["track_soc", "seen_brightloaf", "intro_2"],
+  done: ["intro_1", "t1_bakery_phish", "s1_outro", "intro_2"], codex: ["phishing", "triage"], screeningScore: 5,
+  cleanCloses: 1, totalCloses: 1, botched: 0,
+  screeningFails: 0, hintsUsed: 0, hard: false, seed: 7,
+  triage: { q2_backup: "closed", q2_travel: "opened" },
+});
+
+test("screenshot: alert-queue", async ({ page }) => {
+  test.setTimeout(30_000);
+  await page.goto(GAME);
+  await page.evaluate(([s, m]) => {
+    localStorage.setItem("breakwater.save.v1", s);
+    localStorage.setItem("breakwater.meta.v1", m);
+  }, [QUEUE_SAVE, META]);
+  await page.reload();
+  await page.getByRole("button", { name: /^Continue as/ }).click();
+  await page.locator(".alert-queue-open").click();
+  await expect(page.locator(".alert.al-opened")).toBeVisible();
+  // frame the list itself: the call already made, and the alert waiting for one
+  await page.locator(".triage-list").evaluate((el) => window.scrollTo(0, el.getBoundingClientRect().top + window.scrollY - 70));
+  await page.waitForTimeout(600);
+  await page.screenshot({ path: "media/alert-queue.png" });
+});
+
+// A SOC run near its end, for the skills summary
+const SKILLS_SAVE = JSON.stringify({
+  version: 1, playerName: "Riley", track: "soc", hired: true,
+  chapter: 5, xp: 700, integrity: 5,
+  flags: ["track_soc", "knows_truth", "knows_harborwatch", "evidence_chain_intact", "intro_5"],
+  done: ["intro_5", "t1_bakery_phish", "t1_printer", "t2_bakery_bec", "t2_school_dns", "tr_soc", "sd_packet", "t3_clinic_image", "t3_soc_alerts", "sd_vishing", "t4_soc", "sd_backups", "t5_plant_recon"],
+  codex: ["phishing", "email-headers", "dns-tunnel", "password-spray", "mfa", "triage", "detection-rule", "attack"], screeningScore: 5,
+  cleanCloses: 11, totalCloses: 12, botched: 0,
+  screeningFails: 0, hintsUsed: 1, hard: false, seed: 42,
+  triage: { q2_travel: "escalated", q2_admin: "escalated", q2_backup: "closed", q2_eicar: "aged", q2_lockout: "aged", q3_avoff: "escalated", q3_upload: "aged", q3_cert: "closed", q3_scanner: "aged", q3_trip: "aged", q4_shadow: "escalated", q4_device: "escalated", q4_power: "closed", q4_vpn: "aged", q4_internet: "aged" },
+});
+
+test("screenshot: skills-summary", async ({ page }) => {
+  test.setTimeout(30_000);
+  await page.goto(GAME);
+  await page.evaluate(([s, m]) => {
+    localStorage.setItem("breakwater.save.v1", s);
+    localStorage.setItem("breakwater.meta.v1", m);
+  }, [SKILLS_SAVE, META]);
+  await page.reload();
+  await page.getByRole("button", { name: /^Continue as/ }).click();
+  await page.getByRole("button", { name: "Settings" }).click();
+  await page.getByRole("button", { name: "Skills summary" }).click();
+  await expect(page.locator(".skills-tools li").first()).toBeVisible();
+  await page.waitForTimeout(600);
+  await page.screenshot({ path: "media/skills-summary.png" });
+});

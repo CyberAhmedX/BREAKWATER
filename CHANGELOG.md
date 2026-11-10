@@ -21,6 +21,8 @@ Play online: https://cyberahmedx.github.io/BREAKWATER/
 - **Earlier choices close endings.** Low Tide is closed if you handed BRACKISH to Walter in chapter three or took his promotion in chapter four. Company Keeper is closed once Mags holds her message, unless you took that promotion. Every path leaves at least two ways out.
 - A closed option is now shown with the choice that closed it, instead of silently disappearing. This applies to the clean containment in the finale too.
 - The app controller is split into one file per screen. No change in behaviour.
+- The browser tests run on Playwright 1.63, which supports the Ubuntu image GitHub's runners now use, and every multi-team test is one test per team.
+- The README demo and screenshots are retaken, with two new ones for the alert queue and the skills summary.
 
 ### Fixed
 - A save or chapter checkpoint written by an older version is filled in with any newer fields when it is loaded, and a save with no run seed is given one that is written back at once.
