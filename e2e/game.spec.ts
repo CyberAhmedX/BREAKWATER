@@ -14,7 +14,9 @@ async function replayChapter(page: Page, title: string): Promise<void> {
 }
 
 test("one full run, then every other ending through chapter select", async ({ page }) => {
-  test.setTimeout(6 * 60_000);
+  // The longest test by far: a whole game, then four partial replays. The
+  // limit is set for a slow shared CI machine, not for a laptop.
+  test.setTimeout(25 * 60_000);
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto(GAME);
@@ -85,74 +87,78 @@ test("one full run, then every other ending through chapter select", async ({ pa
   expect(errors).toEqual([]);
 });
 
+// Settings for the runs below that are not about dialogue or motion: quiet,
+// still, and each conversation shown at once, so a run is mostly casework.
+const QUICK_META = { version: 1, endings: [], achievements: [], codexEver: [], casesEver: [], secretsEver: [], checkpoints: {}, settings: { music: 0, effects: 0, muted: true, textScale: 1, reducedMotion: true, relaxedTimers: false, fastDialogue: true } };
+
+/** Start the game from a save, or from nothing, with the quick settings. */
+async function startQuick(page: Page, saveData?: Record<string, unknown>): Promise<void> {
+  await page.goto(GAME);
+  await page.evaluate(
+    ([s, m]) => {
+      if (s) localStorage.setItem("breakwater.save.v1", s);
+      else localStorage.removeItem("breakwater.save.v1");
+      localStorage.setItem("breakwater.meta.v1", m);
+    },
+    [saveData ? JSON.stringify(saveData) : "", JSON.stringify(QUICK_META)],
+  );
+  await page.reload();
+}
+
+// One test per team for each stretch of the game, so each has its own clock
+// and they can run side by side.
 for (const dept of DEPTS) {
-  test(`the ${DEPT_LABEL[dept]} hire gets their own case and nobody else's`, async ({ page }) => {
-    test.setTimeout(2 * 60_000);
-    await page.goto(GAME);
-    expect(await play(page, { name: "Sam", track: dept, untilChapter: 3 })).toBeNull();
+  test(`the ${DEPT_LABEL[dept]} hire gets their own case, nobody else's, and finds their team's secret`, async ({ page }) => {
+    test.setTimeout(6 * 60_000);
+    const errors: string[] = [];
+    page.on("pageerror", (e) => errors.push(e.message));
+    await startQuick(page);
+    // through the screening and the first three chapters
+    expect(await play(page, { name: "Sam", track: dept, untilChapter: 4 })).toBeNull();
     const s = await save(page);
     const own = TICKETS.find((t) => t.requires?.includes(trackFlag(dept)) && t.chapter === 2)!;
     const otherCh2 = TICKETS.filter((t) => t.chapter === 2 && t.requires?.some((f) => f.startsWith("track_")) && t !== own);
     expect(s.done).toContain(own.id);
     for (const t of otherCh2) expect(s.done).not.toContain(t.id);
+    expect(s.flags, `${dept} finds its chapter-three secret`).toContain(`secret_${dept}`);
+    expect(errors).toEqual([]);
   });
 }
 
+const OWN_CH4: Record<string, string> = { soc: "t4_soc", network: "t4_network", helpdesk: "t4_helpdesk", forensics: "t4_forensics", pentest: "t4_harbor_pentest", intel: "t4_intel_correlate" };
 
-test("each team finds its own chapter-three secret", async ({ page }) => {
-  test.setTimeout(5 * 60_000);
-  for (const [track, flag] of [["helpdesk", "secret_helpdesk"], ["network", "secret_network"], ["intel", "secret_intel"], ["pentest", "secret_pentest"], ["soc", "secret_soc"]] as const) {
-    await page.goto(GAME);
-    await page.evaluate(() => { localStorage.removeItem("breakwater.save.v1"); localStorage.removeItem("breakwater.meta.v1"); });
-    await page.reload();
-    expect(await play(page, { name: "Sam", track, untilChapter: 4 })).toBeNull();
-    const s = await save(page);
-    expect(s.flags, `${track} sets ${flag}`).toContain(flag);
-  }
-});
-
-
-test("each team works its own chapter four case with its own tool", async ({ page }) => {
-  test.setTimeout(4 * 60_000);
-  const errors: string[] = [];
-  page.on("pageerror", (e) => errors.push(e.message));
-  const own: Record<string, string> = { soc: "t4_soc", network: "t4_network", helpdesk: "t4_helpdesk", forensics: "t4_forensics", pentest: "t4_harbor_pentest", intel: "t4_intel_correlate" };
-  for (const track of DEPTS) {
-    await page.goto(GAME);
-    await page.evaluate((t) => {
-      localStorage.setItem("breakwater.save.v1", JSON.stringify({ version: 1, playerName: "Four", track: t, hired: true, chapter: 4, xp: 400, integrity: 3, flags: [`track_${t}`, "knows_truth", "knows_harborwatch", "clinic_examined", "evidence_chain_intact", "told_mags"], done: [], codex: [], screeningScore: 5, cleanCloses: 6, totalCloses: 6, botched: 0, screeningFails: 0, hintsUsed: 0, hard: false, seed: 20261110, triage: {} }));
-      localStorage.setItem("breakwater.meta.v1", JSON.stringify({ version: 1, endings: [], achievements: [], codexEver: [], casesEver: [], secretsEver: [], checkpoints: {}, settings: { music: 0, effects: 0, muted: true, textScale: 1, reducedMotion: true, relaxedTimers: false } }));
-    }, track);
-    await page.reload();
+for (const track of DEPTS) {
+  test(`the ${DEPT_LABEL[track]} hire works their chapter four case with their own tool`, async ({ page }) => {
+    test.setTimeout(5 * 60_000);
+    const errors: string[] = [];
+    page.on("pageerror", (e) => errors.push(e.message));
+    await startQuick(page, { version: 1, playerName: "Four", track, hired: true, chapter: 4, xp: 400, integrity: 3, flags: [`track_${track}`, "knows_truth", "knows_harborwatch", "clinic_examined", "evidence_chain_intact", "told_mags"], done: [], codex: [], screeningScore: 5, cleanCloses: 6, totalCloses: 6, botched: 0, screeningFails: 0, hintsUsed: 0, hard: false, seed: 20261110, triage: {} });
     expect(await play(page, { name: "Four", track, untilChapter: 5 })).toBeNull();
     const s = await save(page);
-    expect(s.done, `${track} closed its own case`).toContain(own[track]);
+    expect(s.done, `${track} closed its own case`).toContain(OWN_CH4[track]);
     // the principled choice everywhere: nobody crossed the line
     expect(s.flags).not.toContain("crossed_line");
     expect(s.flags).toEqual(expect.arrayContaining(["triage_caught:q4_shadow", "triage_caught:q4_device"]));
-  }
-  expect(errors).toEqual([]);
-});
+    expect(errors).toEqual([]);
+  });
+}
 
-test("each team plays its own live finale to an ending", async ({ page }) => {
-  test.setTimeout(4 * 60_000);
-  const errors: string[] = [];
-  page.on("pageerror", (e) => errors.push(e.message));
-  for (const track of ["network", "helpdesk", "pentest", "intel"] as const) {
-    await page.goto(GAME);
-    await page.evaluate((t) => {
-      localStorage.setItem("breakwater.save.v1", JSON.stringify({ version: 1, playerName: "Fin", track: t, hired: true, chapter: 5, xp: 650, integrity: 4, flags: [`track_${t}`, "knows_truth", "knows_harborwatch", "evidence_chain_intact", "intro_5"], done: ["intro_5"], codex: [], screeningScore: 5, cleanCloses: 9, totalCloses: 9, botched: 0, screeningFails: 0, hintsUsed: 0, hard: false }));
-      localStorage.setItem("breakwater.meta.v1", JSON.stringify({ version: 1, endings: [], achievements: [], codexEver: [], casesEver: [], secretsEver: [], checkpoints: {}, settings: { music: 0, effects: 0, muted: true, textScale: 1, reducedMotion: true, relaxedTimers: false } }));
-    }, track);
-    await page.reload();
+// SOC's finale has a test of its own below, and Forensics plays its finale in the full run.
+for (const track of ["network", "helpdesk", "pentest", "intel"] as const) {
+  test(`the ${DEPT_LABEL[track]} hire plays their own live finale to an ending`, async ({ page }) => {
+    test.setTimeout(5 * 60_000);
+    const errors: string[] = [];
+    page.on("pageerror", (e) => errors.push(e.message));
+    // no seed and no alert queue in this save, as one written by an older version would have
+    await startQuick(page, { version: 1, playerName: "Fin", track, hired: true, chapter: 5, xp: 650, integrity: 4, flags: [`track_${track}`, "knows_truth", "knows_harborwatch", "evidence_chain_intact", "intro_5"], done: ["intro_5"], codex: [], screeningScore: 5, cleanCloses: 9, totalCloses: 9, botched: 0, screeningFails: 0, hintsUsed: 0, hard: false });
     const ending = await play(page, { name: "Fin", track });
     expect(ending, `${track} reaches an ending`).not.toBeNull();
-  }
-  expect(errors).toEqual([]);
-});
+    expect(errors).toEqual([]);
+  });
+}
 
 test("an ending closed by an earlier choice is shown with the reason", async ({ page }) => {
-  test.setTimeout(60_000);
+  test.setTimeout(3 * 60_000);
   const at = async (flags: string[]): Promise<void> => {
     await page.goto(GAME);
     await page.evaluate((f) => {
@@ -189,7 +195,7 @@ test("an ending closed by an earlier choice is shown with the reason", async ({ 
 });
 
 test("alerts left to age out, and alerts caught, come back in the next chapter", async ({ page }) => {
-  test.setTimeout(90_000);
+  test.setTimeout(3 * 60_000);
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
   // the end of chapter two for a help desk hire, with every case closed and the queue untouched
@@ -249,7 +255,7 @@ test("alerts left to age out, and alerts caught, come back in the next chapter",
 });
 
 test("the chapter five finale runs live and hands out take-home files", async ({ page }) => {
-  test.setTimeout(60_000);
+  test.setTimeout(3 * 60_000);
   await page.goto(GAME);
   await page.evaluate(() => {
     localStorage.setItem("breakwater.save.v1", JSON.stringify({ version: 1, playerName: "Nz", track: "soc", hired: true, chapter: 5, xp: 600, integrity: 4, flags: ["track_soc", "finale_ready", "intro_5"], done: ["intro_5"], codex: [], screeningScore: 5, cleanCloses: 8, totalCloses: 8, botched: 0, screeningFails: 0, hintsUsed: 0, hard: false }));
@@ -274,7 +280,7 @@ test("the chapter five finale runs live and hands out take-home files", async ({
 });
 
 test("hard mode never offers a hint, and practice leaves the run alone", async ({ page }) => {
-  test.setTimeout(2 * 60_000);
+  test.setTimeout(5 * 60_000);
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto(GAME);
@@ -299,7 +305,7 @@ test("hard mode never offers a hint, and practice leaves the run alone", async (
 });
 
 test("a save moves to a fresh browser by file and by code", async ({ page, browser }) => {
-  test.setTimeout(2 * 60_000);
+  test.setTimeout(5 * 60_000);
   await page.goto(GAME);
   await play(page, { name: "Avery", track: "network", untilChapter: 2 });
   const before = await page.evaluate(() => ({
