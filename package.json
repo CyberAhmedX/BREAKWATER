@@ -28,11 +28,16 @@
     "jsdom": "26.1.0",
     "typescript": "5.8.3",
     "typescript-eslint": "8.33.1",
-    "vite": "6.3.5",
+    "vite": "6.4.6",
     "vite-plugin-singlefile": "2.2.0",
-    "vitest": "3.2.4"
+    "vitest": "4.1.12"
   },
   "engines": {
     "node": ">=20"
+  },
+  "overrides": {
+    "@typescript-eslint/typescript-estree": {
+      "minimatch": "11.0.5"
+    }
   }
 }
