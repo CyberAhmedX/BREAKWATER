@@ -3,8 +3,8 @@ name: Release
 # Tag a version (for example: git tag v1.0.0 && git push origin v1.0.0) and this
 # builds the game and attaches the single self-contained HTML file to a GitHub
 # Release, so anyone can download and play it offline. It then builds the
-# desktop app and adds the Windows installer and the Linux packages to the
-# same release.
+# desktop app and adds the Windows installer, the Linux packages and the macOS
+# disk image to the same release.
 
 on:
   push:
@@ -60,13 +60,21 @@ jobs:
           body_path: notes.md
 
   # The desktop app: the same build inside a native window. The installers are
-  # not code signed, so Windows shows a SmartScreen prompt on first run.
+  # not code signed, so Windows shows a SmartScreen prompt on first run and
+  # macOS needs a right-click and Open the first time.
   desktop:
     needs: release
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, ubuntu-22.04]
+        include:
+          - os: windows-latest
+            args: ""
+          - os: ubuntu-22.04
+            args: ""
+          # one app that runs on both Apple silicon and Intel Macs
+          - os: macos-latest
+            args: "--target universal-apple-darwin"
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -75,6 +83,8 @@ jobs:
           node-version: 22
           cache: npm
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ runner.os == 'macOS' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
@@ -90,3 +100,4 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tagName: ${{ github.event.inputs.tag || github.ref_name }}
+          args: ${{ matrix.args }}

@@ -9,7 +9,11 @@ Play online: https://cyberahmedx.github.io/BREAKWATER/
 ## [Unreleased]
 
 ### Added
-- **A desktop app.** The game now also builds as a PC game in its own window, with a Windows installer and Linux packages attached to each release. F11 or Alt+Enter toggles fullscreen, saving a file opens a native "Save as" dialog, and the title screen has Quit to desktop. The browser version is unchanged.
+- **A desktop app.** The game now also builds as a PC game in its own window for Windows, Linux and macOS, with installers attached to each release. F11 or Alt+Enter toggles fullscreen, saving a file opens a native "Save as" dialog, and the main menu has Quit to desktop. The browser version plays the same.
+- **A main menu.** The game opens on a menu: Continue, New game, Replay a chapter, Practice a case, Endings and achievements, Import a save and Settings. Up and down move through it.
+
+### Changed
+- You are asked for your name after choosing New game, on the job application, instead of on the first screen.
 
 ## [3.1.0] - 2026-11-10
 

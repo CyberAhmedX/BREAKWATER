@@ -284,6 +284,7 @@ test("hard mode never offers a hint, and practice leaves the run alone", async (
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto(GAME);
+  await page.getByRole("button", { name: "New game" }).click();
   await page.fill("#player-name", "Kit");
   await page.check("#hard-mode");
   await page.getByRole("button", { name: "Apply to Lanternhouse" }).click();

@@ -72,10 +72,14 @@ export async function play(page: Page, plan: Plan): Promise<string | null> {
       await chooseInScene(page, plan);
       continue;
     }
-    if (await page.locator(".title-card").count()) {
+    if (await page.locator(".main-menu").count()) {
       const cont = page.getByRole("button", { name: /^Continue as / });
       if (await cont.count()) await cont.click();
-      else {
+      else await page.getByRole("button", { name: "New game" }).click();
+      continue;
+    }
+    if (await page.locator(".title-card").count()) {
+      {
         await page.fill("#player-name", plan.name);
         await page.getByRole("button", { name: "Apply to Lanternhouse" }).click();
       }

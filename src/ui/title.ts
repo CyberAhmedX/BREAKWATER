@@ -8,7 +8,7 @@ import { screeningFor } from "../content/screenings";
 import { el, mount } from "./dom";
 import type { Host } from "./host";
 import { isDesktop, quitGame } from "./platform";
-import { openChapterSelect, openImport, openPractice, openRecord } from "./overlays";
+import { openChapterSelect, openImport, openPractice, openRecord, openSettings } from "./overlays";
 
 // The title screen and the choice of team to screen for.
 
@@ -22,9 +22,72 @@ const TRACK_PITCH: Record<Dept, string> = {
 };
 
 // ----------------------------------------------------------------- title
-export function screenTitle(host: Host): void {
-  const begin = (): void => host.startSession();
-  const resumeAvailable = host.s.playerName !== "";
+// The main menu comes first. A new game then opens the application form, where
+// the player signs their name, so nobody is asked who they are before they
+// have decided to play.
+export function screenTitle(host: Host, view: "menu" | "apply" = "menu"): void {
+  if (view === "apply") screenApply(host);
+  else screenMenu(host);
+}
+
+function screenMenu(host: Host): void {
+  const hasSave = host.s.playerName !== "";
+  const list = el("div", { class: "menu-list", role: "group", "aria-label": "Main menu" });
+  const item = (text: string, run: () => void, primary = false): void => {
+    // the marker is decoration, so it stays out of the button's name
+    const b = el("button", { class: primary ? "menu-item primary" : "menu-item", type: "button" }, [el("span", { class: "menu-caret", "aria-hidden": "true", text: ">" }), text]);
+    b.addEventListener("click", () => {
+      audio.click();
+      run();
+    });
+    list.append(b);
+  };
+
+  if (hasSave) {
+    item(
+      `Continue as ${host.s.playerName}`,
+      () => {
+        host.startSession();
+        host.render();
+      },
+      true,
+    );
+  }
+  item("New game", () => screenTitle(host, "apply"), !hasSave);
+  // Once you have finished a run, you can look back at it and replay a chapter.
+  if (canSelectChapter(host.meta)) item("Replay a chapter", () => openChapterSelect(host));
+  if (host.meta.casesEver.length > 0) item("Practice a case", () => openPractice(host));
+  if (host.meta.endings.length > 0 || host.meta.achievements.length > 0) item("Endings and achievements", () => openRecord(host));
+  // someone arriving on a new device brings their save with them
+  item("Import a save", () => openImport(host));
+  item("Settings", () => openSettings(host));
+  // a window has no tab to close, so the desktop app gets a way out
+  if (isDesktop()) item("Quit to desktop", quitGame);
+
+  // up and down move through the menu, the way a game menu does
+  list.addEventListener("keydown", (e) => {
+    if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+    const items = [...list.querySelectorAll<HTMLElement>(".menu-item")];
+    const at = items.indexOf(document.activeElement as HTMLElement);
+    const next = e.key === "ArrowDown" ? at + 1 : at - 1;
+    e.preventDefault();
+    items[(next + items.length) % items.length]?.focus();
+  });
+
+  const menu = el("div", { class: "main-menu" }, [
+    el("h1", { class: "title-logo", text: "BREAKWATER" }),
+    el("p", { class: "title-sub", text: "a cybersecurity career game" }),
+    list,
+    el("p", { class: "menu-hint", text: isDesktop() ? "Up and down to move. Enter to choose. F11 for fullscreen." : "Up and down to move. Enter to choose." }),
+  ]);
+
+  host.stage.className = "stage menu";
+  mount(host.stage, menu);
+  setTimeout(() => list.querySelector<HTMLElement>(".menu-item")?.focus(), 30);
+}
+
+function screenApply(host: Host): void {
+  const hasSave = host.s.playerName !== "";
 
   const nameInput = el("input", {
     class: "name-input",
@@ -32,7 +95,6 @@ export function screenTitle(host: Host): void {
     id: "player-name",
     maxlength: 24,
     placeholder: "Your name",
-    value: host.s.playerName,
   }) as HTMLInputElement;
 
   const hardBox = el("input", { type: "checkbox", id: "hard-mode" }) as HTMLInputElement;
@@ -41,19 +103,15 @@ export function screenTitle(host: Host): void {
     el("span", {}, [el("b", { text: "Hard mode. " }), el("span", { text: "For experienced players: no hints, one attempt at every case, and a tighter clock in the live finale. A wrong answer and the case is botched." })]),
   ]);
 
-  const start = el("button", {
-    class: resumeAvailable ? "btn ghost" : "btn primary",
-    type: "button",
-    text: resumeAvailable ? "Start over as a new applicant" : "Apply to Lanternhouse",
-  });
+  const start = el("button", { class: "btn primary", type: "button", text: "Apply to Lanternhouse" });
   let confirmingRestart = false;
-  start.addEventListener("click", () => {
-    if (resumeAvailable && !confirmingRestart) {
+  const apply = (): void => {
+    if (hasSave && !confirmingRestart) {
       confirmingRestart = true;
-      start.textContent = "This erases your saved game. Tap again to confirm";
+      start.textContent = `This erases ${host.s.playerName}'s saved game. Tap again to confirm`;
       return;
     }
-    begin();
+    host.startSession();
     const name = nameInput.value.trim() || "Alex";
     host.s = freshSave();
     host.s.playerName = name;
@@ -61,73 +119,33 @@ export function screenTitle(host: Host): void {
     audio.click();
     host.persist();
     host.render();
+  };
+  start.addEventListener("click", apply);
+  nameInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") apply();
+  });
+
+  const back = el("button", { class: "btn ghost", type: "button", text: "Back to menu" });
+  back.addEventListener("click", () => {
+    audio.click();
+    screenTitle(host);
   });
 
   const card = el("div", { class: "title-card" }, [
-    el("h1", { class: "title-logo", text: "BREAKWATER" }),
-    el("p", { class: "title-sub", text: "a cybersecurity career game" }),
-    el("p", { class: "title-blurb", text: "You are the newest hire at Lanternhouse Security, a small firm keeping a rainy harbor town safe. Learn the trade, close the tickets, and find out what has been hiding in the quiet." },
-    ),
+    el("p", { class: "title-sub", text: "Lanternhouse Security: job application" }),
+    el("p", { class: "title-blurb", text: "You are the newest hire at Lanternhouse Security, a small firm keeping a rainy harbor town safe. Learn the trade, close the tickets, and find out what has been hiding in the quiet." }),
     el("p", { class: "title-audience", text: "Made for students and beginners getting ready for a SOC or help desk job. Turn on Hard mode if you already do this for a living." }),
+    el("label", { class: "field-label", for: "player-name", text: "Sign your application" }),
+    nameInput,
+    hardRow,
+    ...(hasSave ? [el("p", { class: "warn", text: `A new game replaces ${host.s.playerName}'s saved run. Endings and achievements are kept.` })] : []),
+    start,
+    back,
   ]);
-
-  if (resumeAvailable) {
-    const cont = el("button", { class: "btn primary", type: "button", text: `Continue as ${host.s.playerName}` });
-    cont.addEventListener("click", () => {
-      begin();
-      audio.click();
-      host.render();
-    });
-    card.append(cont, el("label", { class: "field-label", for: "player-name", text: "Or sign a new application" }), nameInput, hardRow, start);
-  } else {
-    card.append(el("label", { class: "field-label", for: "player-name", text: "Sign your application" }), nameInput, hardRow, start);
-  }
-
-  // Once you have finished a run, you can look back at it and replay a chapter.
-  const extras = el("div", { class: "title-extras" });
-  if (canSelectChapter(host.meta)) {
-    const pick = el("button", { class: "btn ghost small", type: "button", text: "Replay a chapter" });
-    pick.addEventListener("click", () => {
-      audio.click();
-      openChapterSelect(host);
-    });
-    extras.append(pick);
-  }
-  if (host.meta.casesEver.length > 0) {
-    const practise = el("button", { class: "btn ghost small", type: "button", text: "Practice a case" });
-    practise.addEventListener("click", () => {
-      audio.click();
-      openPractice(host);
-    });
-    extras.append(practise);
-  }
-  if (host.meta.endings.length > 0 || host.meta.achievements.length > 0) {
-    const rec = el("button", { class: "btn ghost small", type: "button", text: "Endings and achievements" });
-    rec.addEventListener("click", () => {
-      audio.click();
-      openRecord(host);
-    });
-    extras.append(rec);
-  }
-  // someone arriving on a new device brings their save with them
-  const imp = el("button", { class: "btn ghost small", type: "button", text: "Import a save" });
-  imp.addEventListener("click", () => {
-    audio.click();
-    openImport(host);
-  });
-  extras.append(imp);
-  // a window has no tab to close, so the desktop app gets a way out
-  if (isDesktop()) {
-    const quit = el("button", { class: "btn ghost small", type: "button", text: "Quit to desktop" });
-    quit.addEventListener("click", quitGame);
-    extras.append(quit);
-  }
-  card.append(extras);
 
   host.stage.className = "stage center";
   mount(host.stage, card);
-  const firstButton = card.querySelector("button");
-  setTimeout(() => (resumeAvailable ? firstButton?.focus() : nameInput.focus()), 30);
+  setTimeout(() => nameInput.focus(), 30);
 }
 
 // ----------------------------------------------------------------- track

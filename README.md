@@ -100,14 +100,22 @@ npm run e2e      # plays the built game in Chromium: every ending, every track
 
 ### The desktop app
 
-The same build also runs as a PC game, in its own window, through [Tauri](https://tauri.app). You need [Rust](https://rustup.rs) installed, and on Linux the WebKitGTK development libraries.
+The same build also runs as a PC game, in its own window, through [Tauri](https://tauri.app). It runs on Windows, Linux and macOS. To build it you need [Rust](https://rustup.rs) installed, and on Linux the WebKitGTK development libraries.
 
 ```bash
 npm run desktop:dev     # the game in a native window, with live reload
 npm run desktop:build   # an installer in src-tauri/target/release/bundle/
 ```
 
-F11 or Alt+Enter toggles fullscreen, downloads open a native "Save as" dialog, and the title screen has a way to quit. Tagging a release builds a Windows installer and Linux packages and attaches them to it. The installers are not code signed, so Windows asks before running one for the first time.
+F11 or Alt+Enter toggles fullscreen, downloads open a native "Save as" dialog, and the main menu has a way to quit. Tagging a release builds and attaches:
+
+| System | File |
+| :-- | :-- |
+| Windows 10 and 11 | `.exe` installer |
+| Linux | `.deb`, `.rpm` and a portable `.AppImage` |
+| macOS 10.15 and later, Apple silicon and Intel | `.dmg` |
+
+The installers are not code signed. Windows asks before running one for the first time, and on macOS you right-click the app and choose Open the first time (or allow it under System Settings, Privacy & Security).
 
 The production build is one self-contained `dist/index.html` of about 750 KB, fonts included. It makes no network requests, so it works offline and can be hosted anywhere.
 
