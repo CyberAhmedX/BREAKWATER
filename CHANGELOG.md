@@ -6,6 +6,12 @@ All notable changes to Breakwater, newest first. This file follows
 
 Download: https://github.com/CyberAhmedX/BREAKWATER/releases/latest &middot; Demo: https://cyberahmedx.github.io/BREAKWATER/
 
+## [3.2.1] - 2026-11-12
+
+### Fixed
+- **The main menu has music.** The soundtrack used to start only once a game began, so the menu and the job application were silent. It now starts with your first click or key press on the menu, which is as early as a browser allows, and at once in the desktop app.
+- **The soundtrack follows the chapter.** The music, rain and wind stayed in their opening mood for the whole run. They now change with each chapter, the way the room does. Thunder also answers lightning on the menu.
+
 ## [3.2.0] - 2026-11-12
 
 ### Added

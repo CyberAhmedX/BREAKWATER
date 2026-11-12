@@ -35,6 +35,7 @@ import { QUEUE, queueAftermath, queueFor } from "../content/queue";
 import { ageOut, looksLeft, queueOpen, triageStats, waiting } from "../engine/triage";
 import { screenTriage } from "./triage";
 import { el, mount } from "./dom";
+import { isDesktop } from "./platform";
 import { chapterCard, stampCase } from "./effects";
 import { type CloseGradeInfo, type Host, isVisible, speakerFor, stat } from "./host";
 import { screenTitle, screenTrack } from "./title";
@@ -76,12 +77,12 @@ export class App implements Host {
     this.scene.setChapter(this.s.chapter);
     // thunder follows the flash after a gap: short when the storm is overhead
     this.scene.onStrike = () => {
-      if (!this.started) return;
       const near = this.s.chapter >= 5;
       const delay = near ? 200 + Math.random() * 600 : 900 + Math.random() * 1600;
       setTimeout(() => audio.thunder(near ? 1 : 0.55 + Math.random() * 0.2), delay);
     };
     this.scene.start();
+    this.armAudio();
     // Click a bit of the office that is not covered by UI to read some flavor.
     this.root.addEventListener("click", (e) => {
       const target = e.target as HTMLElement;
@@ -114,12 +115,30 @@ export class App implements Host {
     this.scene.setReducedMotion(set.reducedMotion);
   }
 
-  // A click on the title screen is what lets the browser start the audio.
   startSession(): void {
     this.started = true;
+    this.wakeAudio();
+  }
+
+  /** Start the soundtrack, in the mood of the chapter on screen. Safe to call again. */
+  private wakeAudio(): void {
     audio.init();
     audio.startMusic();
-    audio.setChapter(0);
+    audio.setChapter(this.s.chapter);
+  }
+
+  // A browser only lets a page make sound once the player has clicked or
+  // pressed a key, so the menu's music starts on the first of either. The
+  // desktop app has no such rule and starts at once.
+  private armAudio(): void {
+    const wake = (): void => {
+      removeEventListener("pointerdown", wake, true);
+      removeEventListener("keydown", wake, true);
+      this.wakeAudio();
+    };
+    addEventListener("pointerdown", wake, true);
+    addEventListener("keydown", wake, true);
+    if (isDesktop()) this.wakeAudio();
   }
 
   portrait(key: string, size = 96): HTMLCanvasElement {
@@ -179,6 +198,8 @@ export class App implements Host {
   render(): void {
     this.renderTopbar();
     this.scene.setChapter(this.s.chapter);
+    // the soundtrack follows the chapter, the same as the room does
+    audio.setChapter(this.s.chapter);
     this.castOffice();
     if (!this.started) {
       screenTitle(this);
