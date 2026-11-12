@@ -4,7 +4,7 @@ All notable changes to Breakwater, newest first. This file follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [semantic versioning](https://semver.org/).
 
-Play online: https://cyberahmedx.github.io/BREAKWATER/
+Download: https://github.com/CyberAhmedX/BREAKWATER/releases/latest &middot; Demo: https://cyberahmedx.github.io/BREAKWATER/
 
 ## [Unreleased]
 
@@ -21,6 +21,8 @@ Play online: https://cyberahmedx.github.io/BREAKWATER/
 - **Feedback.** A stamp lands when a case closes, each chapter opens on a title card, a wrong submit shakes the panel, and in the live finale it flashes the screen. Reduced motion stills these.
 
 ### Changed
+- **The browser version is now the demo.** The website plays the screening and the first two chapters, then points to the download. A save exported from the demo imports into the full game, so nothing is replayed.
+- Releases carry the desktop installers only. The single HTML file is no longer attached.
 - You are asked for your name after choosing New game, on the job application, instead of on the first screen.
 
 ## [3.1.0] - 2026-11-10

@@ -2,6 +2,7 @@ import type { Dept } from "../engine/types";
 import { DEPTS, DEPT_LABEL } from "../engine/types";
 import { freshSave } from "../engine/state";
 import { canSelectChapter } from "../engine/meta";
+import { DEMO, FULL_GAME_URL } from "../engine/demo";
 import { audio } from "../audio/audio";
 import { charName } from "../content/characters";
 import { screeningFor } from "../content/screenings";
@@ -61,6 +62,7 @@ function screenMenu(host: Host): void {
   // someone arriving on a new device brings their save with them
   item("Import a save", () => openImport(host));
   item("Settings", () => openSettings(host));
+  if (DEMO) item("Get the full game", () => window.open(FULL_GAME_URL, "_blank", "noopener"));
   // a window has no tab to close, so the desktop app gets a way out
   if (isDesktop()) item("Quit to desktop", quitGame);
 
@@ -76,7 +78,8 @@ function screenMenu(host: Host): void {
 
   const menu = el("div", { class: "main-menu" }, [
     el("h1", { class: "title-logo", text: "BREAKWATER" }),
-    el("p", { class: "title-sub", text: "a cybersecurity career game" }),
+    el("p", { class: "title-sub", text: DEMO ? "a cybersecurity career game: the demo" : "a cybersecurity career game" }),
+    ...(DEMO ? [el("p", { class: "menu-demo", text: "The first two chapters, in your browser. The full game is a free download, and your save carries over." })] : []),
     list,
     el("p", { class: "menu-hint", text: isDesktop() ? "Up and down to move. Enter to choose. F11 for fullscreen." : "Up and down to move. Enter to choose." }),
   ]);

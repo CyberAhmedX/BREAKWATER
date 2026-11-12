@@ -1392,3 +1392,8 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
 @keyframes shake { 0%, 100% { transform: translateX(0); } 20% { transform: translateX(-7px); } 40% { transform: translateX(6px); } 60% { transform: translateX(-4px); } 80% { transform: translateX(3px); } }
 .fx-hit { position: fixed; inset: 0; z-index: 60; pointer-events: none; background: radial-gradient(ellipse at center, transparent 40%, rgba(214, 60, 70, 0.5) 100%); animation: hit-fade 0.5s ease-out both; }
 @keyframes hit-fade { from { opacity: 1; } to { opacity: 0; } }
+
+/* ------------------------------------------------------------------ demo */
+.menu-demo { margin: 0; max-width: 420px; color: var(--fg-dim); font-size: calc(13.5px * var(--ts)); }
+.demo-end a.btn { text-decoration: none; text-align: center; }
+.demo-end .chapter-title { margin: 0; }

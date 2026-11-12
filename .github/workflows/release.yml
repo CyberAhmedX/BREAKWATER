@@ -1,10 +1,8 @@
 name: Release
 
 # Tag a version (for example: git tag v1.0.0 && git push origin v1.0.0) and this
-# builds the game and attaches the single self-contained HTML file to a GitHub
-# Release, so anyone can download and play it offline. It then builds the
-# desktop app and adds the Windows installer, the Linux packages and the macOS
-# disk image to the same release.
+# creates a GitHub Release and attaches the desktop app to it: the Windows
+# installer, the Linux packages and the macOS disk image.
 
 on:
   push:
@@ -30,9 +28,6 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run check
-      - run: npm run build
-      - name: Name the playable file
-        run: cp dist/index.html "breakwater.html"
       - name: Build release notes from CHANGELOG.md
         run: |
           ver="${{ github.event.inputs.tag || github.ref_name }}"
@@ -40,9 +35,11 @@ jobs:
           {
             echo "A cozy-to-dark cybersecurity career simulation."
             echo
-            echo "Play online: https://cyberahmedx.github.io/BREAKWATER/"
+            echo "Download the installer for your system below: **.exe** for Windows, **.dmg** for macOS, and **.deb**, **.rpm** or **.AppImage** for Linux. The game is free and runs offline."
             echo
-            echo "Or download **breakwater.html** below and open it in any browser. It is fully self-contained and runs offline, no install required."
+            echo "The installers are not code signed. Windows asks before running one for the first time, and on macOS you right-click the app and choose Open."
+            echo
+            echo "Want to try it first? Play the demo in your browser: https://cyberahmedx.github.io/BREAKWATER/"
             echo
             awk -v v="$ver" 'index($0, "## [" v "]") == 1 { g = 1; print; next } g && /^## \[/ { exit } g { print }' CHANGELOG.md
           } > notes.md
@@ -56,7 +53,6 @@ jobs:
           # version bump). GitHub's auto notes only list PRs, which misses
           # direct pushes to main.
           generate_release_notes: false
-          files: breakwater.html
           body_path: notes.md
 
   # The desktop app: the same build inside a native window. The installers are

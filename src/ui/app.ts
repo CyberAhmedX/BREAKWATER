@@ -21,6 +21,7 @@ import {
 import { resolveEnding, ENDING_ORDER } from "../engine/endings";
 import { type MetaData, loadMeta, saveMeta, recordEnding, recordCodex, recordCases, recordSecrets, recordCheckpoint } from "../engine/meta";
 import { checkAchievements } from "../engine/achievements";
+import { FULL_GAME_URL, demoOver } from "../engine/demo";
 import { OfficeScene, type OfficeObject } from "../scene/office";
 import { drawPortrait } from "../scene/portraits";
 import { audio } from "../audio/audio";
@@ -40,7 +41,7 @@ import { screenTitle, screenTrack } from "./title";
 import { screenScreening } from "./screening";
 import { ticketWorkstation } from "./workstation";
 import { playDialogue, playScene } from "./dialogue";
-import { openCodex, openPractice, openRecord, openSettings, openShareCard, openSkills } from "./overlays";
+import { openCodex, openExport, openPractice, openRecord, openSettings, openShareCard, openSkills } from "./overlays";
 
 // The app controller: it owns the run and the record, routes between screens,
 // and runs the chapter desk, case completion and the ending. The screens
@@ -201,6 +202,10 @@ export class App implements Host {
 
   // ----------------------------------------------------------------- chapter desk
   screenChapter(): void {
+    if (demoOver(this.s.chapter)) {
+      this.screenDemoEnd();
+      return;
+    }
     const plan = chapterPlan(this.s.chapter);
     if (!plan) {
       // past the last chapter: go to ending
@@ -320,6 +325,33 @@ export class App implements Host {
     this.stage.className = "stage office";
     mount(this.stage, hub);
     place();
+  }
+
+  /** The end of the browser demo: where to get the full game, and how to bring this run along. */
+  private screenDemoEnd(): void {
+    const get = el("a", { class: "btn primary", href: FULL_GAME_URL, target: "_blank", rel: "noopener", text: "Download the full game" });
+    const exp = el("button", { class: "btn ghost", type: "button", text: "Export my save" });
+    exp.addEventListener("click", () => {
+      audio.click();
+      openExport(this);
+    });
+    const menu = el("button", { class: "btn ghost", type: "button", text: "Back to the menu" });
+    menu.addEventListener("click", () => {
+      audio.click();
+      this.started = false;
+      this.render();
+    });
+    const card = el("div", { class: "title-card demo-end" }, [
+      el("p", { class: "title-sub", text: "End of the demo" }),
+      el("h2", { class: "chapter-title", text: "The weather is turning" }),
+      el("p", { class: "title-blurb", text: `That is the first two chapters, ${this.s.playerName}. Three more are waiting, with the rest of your team's cases, the live finale and all five endings.` }),
+      el("p", { class: "title-blurb", text: "The full game is free, for Windows, macOS and Linux. Your run comes with you: export your save here, then choose Import a save on the full game's menu." }),
+      el("div", { class: "btn-row" }, [get, exp]),
+      menu,
+    ]);
+    this.stage.className = "stage center";
+    mount(this.stage, card);
+    get.focus();
   }
 
   /** Put your colleagues in the room: your team lead at the other desk, and a visitor who changes each chapter. */

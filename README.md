@@ -3,7 +3,9 @@
 <p align="center">A cozy-to-dark cybersecurity career game. Screen for a team, investigate, and learn the trade one real case at a time.</p>
 
 <p align="center">
-  <a href="https://cyberahmedx.github.io/BREAKWATER/"><b>Play in your browser</b></a>
+  <a href="https://github.com/CyberAhmedX/BREAKWATER/releases/latest"><b>Download for Windows, macOS and Linux</b></a>
+  &nbsp;&middot;&nbsp;
+  <a href="https://cyberahmedx.github.io/BREAKWATER/"><b>Play the demo in your browser</b></a>
   &nbsp;&middot;&nbsp;
   <a href="#screenshots">Screenshots</a>
   &nbsp;&middot;&nbsp;
@@ -23,6 +25,11 @@
 You are the newest hire at Lanternhouse Security, a small firm keeping a rainy harbor town safe. You screen for a team, close tickets, climb from Probationary Analyst to Lead, and slowly uncover what has been hiding in the quiet. Your choices lead to one of five endings.
 
 It is built for students and people getting ready for a first SOC or help desk job: the cases are real scenarios, explained as you meet them. If you already do this for a living, Hard mode turns off the hints, gives you one attempt per case, and tightens the clock in the live finale.
+
+## Get the game
+
+- **The full game** is a free download for Windows, macOS and Linux, from the [latest release](https://github.com/CyberAhmedX/BREAKWATER/releases/latest).
+- **The demo** runs [in your browser](https://cyberahmedx.github.io/BREAKWATER/) with nothing to install: the screening and the first two chapters. Export your save at the end and import it into the full game to carry on where you stopped.
 
 ## Screenshots
 
@@ -94,7 +101,7 @@ Every company, person, address, and domain is invented. All IP addresses come fr
 ```bash
 npm install
 npm run dev      # local dev server
-npm run build    # single self-contained HTML file in dist/
+npm run build    # the full game as one self-contained HTML file in dist/
 npm run check    # lint + typecheck + tests
 npm run e2e      # plays the built game in Chromium: every ending, every track
 ```
@@ -118,6 +125,8 @@ F11 or Alt+Enter toggles fullscreen, downloads open a native "Save as" dialog, a
 
 The installers are not code signed. Windows asks before running one for the first time, and on macOS you right-click the app and choose Open the first time (or allow it under System Settings, Privacy & Security).
 
+The website is built with `VITE_DEMO=1 npm run build`, which stops after chapter two and points to the download. Every other build, the desktop app included, is the full game.
+
 The production build is one self-contained `dist/index.html` of about 750 KB, fonts included. It makes no network requests, so it works offline and can be hosted anywhere.
 
 ## Project layout
@@ -139,7 +148,7 @@ media/       screenshots and the demo clip
 
 ## Tech
 
-TypeScript, Vite, Vitest, Playwright, ESLint. No game engine and no runtime framework. CI runs lint, typecheck and tests on every push, then plays the built game in a real browser to every ending; a successful build auto-deploys to GitHub Pages.
+TypeScript, Vite, Vitest, Playwright, ESLint. No game engine and no runtime framework. CI runs lint, typecheck and tests on every push, then plays the built game in a real browser to every ending; a push to main deploys the demo to GitHub Pages, and a version tag builds the installers.
 
 See `CREDITS.md` for asset provenance and `PRIVACY.md` for the privacy note.
 

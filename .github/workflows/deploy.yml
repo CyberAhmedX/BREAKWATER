@@ -1,6 +1,6 @@
 name: Deploy to GitHub Pages
 
-# Publishes the game to GitHub Pages on every push to the default branch.
+# Publishes the browser demo to GitHub Pages on every push to the default branch.
 # One-time setup: repo Settings -> Pages -> Build and deployment -> Source: GitHub Actions.
 
 on:
@@ -27,7 +27,11 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # The website carries the demo: the first two chapters, then a link to
+      # the full game. The desktop installers are always the full game.
       - run: npm run build
+        env:
+          VITE_DEMO: "1"
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
