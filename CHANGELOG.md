@@ -6,7 +6,7 @@ All notable changes to Breakwater, newest first. This file follows
 
 Download: https://github.com/CyberAhmedX/BREAKWATER/releases/latest &middot; Demo: https://cyberahmedx.github.io/BREAKWATER/
 
-## [Unreleased]
+## [3.2.0] - 2026-11-12
 
 ### Added
 - **A desktop app.** The game now also builds as a PC game in its own window for Windows, Linux and macOS, with installers attached to each release. F11 or Alt+Enter toggles fullscreen, saving a file opens a native "Save as" dialog, and the main menu has Quit to desktop. The browser version plays the same.
