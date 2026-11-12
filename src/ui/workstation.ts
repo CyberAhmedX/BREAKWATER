@@ -4,7 +4,9 @@ import { hasFlag } from "../engine/state";
 import { firstToolUse, saveMeta } from "../engine/meta";
 import { CROSSED_LINE, liveSeconds } from "../engine/live";
 import { audio } from "../audio/audio";
+import { desktopFor } from "./desktop";
 import { el, mount } from "./dom";
+import { hit, shake } from "./effects";
 import { renderEvidence } from "./evidence";
 import type { QuestionControl } from "./controls";
 import { type Host, attackTags, hintFlag } from "./host";
@@ -116,6 +118,8 @@ export function ticketWorkstation(host: Host, t: Ticket, review: boolean): void 
       // retry still means reading the evidence again.
       controls.forEach((c) => c.mark());
       audio.wrong();
+      shake(qPanel);
+      if (t.live) hit(host.root);
       const left = maxAttempts - wrong;
       let tail = critical && !t.live ? ` ${left} attempt${left === 1 ? "" : "s"} left.` : "";
       if (clock) {
@@ -199,16 +203,23 @@ export function ticketWorkstation(host: Host, t: Ticket, review: boolean): void 
           el("a", { href: "https://github.com/CyberAhmedX/BREAKWATER/issues", target: "_blank", rel: "noopener", text: "tell me where you got stuck." }),
         ]);
 
+  // Your analysis is a window of its own, beside the evidence.
+  const notes = el("div", { class: "ev win-notes" }, [
+    el("div", { class: "ev-head" }, [el("span", { class: "ev-tag", text: "NOTES" }), el("span", { class: "ev-label", text: "Your analysis" })]),
+    el("div", { class: "win-body" }, [qPanel, feedback, submit, stuck]),
+  ]);
   const body = el("div", { class: "ws-body" }, [
-    el("div", { class: "ws-col ws-evidence" }, [el("div", { class: "col-label", text: "Evidence" }), coach, evPanel]),
-    el("div", { class: "ws-col ws-questions" }, [el("div", { class: "col-label", text: "Your analysis" }), qPanel, feedback, submit, stuck]),
+    el("div", { class: "ws-col ws-evidence" }, [coach, evPanel]),
+    el("div", { class: "ws-col ws-questions" }, [notes]),
   ]);
 
   if (review && t.attack?.length) head.append(attackTags(t));
   if (review && t.takeaways?.length) head.append(takeawayRow(t));
 
+  const desk = el("div", { class: "os-desk" }, [head, body]);
+  const windows = [...evPanel.querySelectorAll<HTMLElement>(":scope > .ev"), notes];
   host.stage.className = "stage ticket";
-  mount(host.stage, head, body);
+  mount(host.stage, desk, desktopFor(desk, windows, host.s.playerName, host.s.chapter));
 }
 
 /** The countdown on a live case. It stops itself once the case leaves the screen. */

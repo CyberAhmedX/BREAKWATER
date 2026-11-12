@@ -2,7 +2,7 @@
 // defining features (hair shape, glasses, headset, hoodie). Drawn from rects so
 // no image assets are needed.
 
-interface Look {
+export interface Look {
   skin: string;
   hair: string;
   hairStyle: "short" | "bun" | "long" | "buzz" | "hood" | "cap" | "bald" | "curl";
@@ -13,7 +13,7 @@ interface Look {
   bg: string;
 }
 
-const LOOKS: Record<string, Look> = {
+export const LOOKS: Record<string, Look> = {
   you: { skin: "#d8a877", hair: "#3a2c22", hairStyle: "short", shirt: "#4a6e8a", bg: "#2a3340" },
   walter: { skin: "#e7c3a0", hair: "#d8d2c6", hairStyle: "bald", shirt: "#7a5a46", accent: "#9a7b56", glasses: true, bg: "#3a3128" },
   mags: { skin: "#6b4a34", hair: "#1c1c22", hairStyle: "buzz", shirt: "#2f4858", headset: true, bg: "#1f2d34" },

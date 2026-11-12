@@ -15,6 +15,11 @@ Play online: https://cyberahmedx.github.io/BREAKWATER/
 - **The office is the desk.** Between cases you are in the room itself. Your screen opens the tickets, the second screen blinks when alerts are waiting and opens the queue, and the corkboard opens Field Notes. Each has a real button over it, so it works with a keyboard and a screen reader, and on a narrow screen the buttons line up along the bottom instead.
 - **Storm lighting.** Rain now falls outside the window, with beads running down the glass, cloud banks, and a sea that heaves as the weather turns. Screens, lamps and the server rack's lights glow through the dark. Lightning shows as a bolt in the sky, lights the room through the window and throws the frame's shadow across the floor. In chapter five the lamps gutter and a red emergency beacon turns on the wall. Reduced motion keeps all of it still.
 
+- **Your screen is a desktop.** A case now opens on LanternOS: each piece of evidence is a window with a title bar, and your analysis is a window beside them. Windows can be minimized, or maximized when a tool wants the whole screen, and a taskbar lists them with the weather and a clock. On a phone the taskbar is the quick way between the evidence and your notes.
+- **Colleagues in the office.** Your team lead works at the other desk, and a visitor with a mug stands by the window, a different one each chapter. Each answers a click.
+- **The sound of the room.** Under the music: the hum of the server rack, someone typing across the room, a foghorn out in the harbor once the weather turns, and wind in the gale and the storm. All of it synthesized, and on the same volume slider as the music and rain.
+- **Feedback.** A stamp lands when a case closes, each chapter opens on a title card, a wrong submit shakes the panel, and in the live finale it flashes the screen. Reduced motion stills these.
+
 ### Changed
 - You are asked for your name after choosing New game, on the job application, instead of on the first screen.
 

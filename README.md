@@ -75,7 +75,8 @@ The office is where you work between cases, and the things in it are the way in:
 - **Hints that cost XP** when you are stuck, so guessing is never cheaper than reading.
 - **MITRE ATT&CK tags** on each solved case, naming the real technique it covered (for example T1566 Phishing).
 - **XP and ranks**: climb from Probationary Analyst to Lead Analyst as you close cases.
-- **Original procedural music and sound**, synthesized live in the browser. Nothing is sampled or copied.
+- **A desktop to work on**: a case opens on LanternOS, with each piece of evidence in its own window, a taskbar, and minimize and maximize for when a tool wants the whole screen.
+- **Original procedural music and sound**, synthesized live in the browser: the soundtrack, the rain, the hum of the server rack, a keyboard across the room, a foghorn in the harbor. Nothing is sampled or copied.
 - **Five endings** driven by your choices about integrity, trust, and the truth. What you did in chapters three and four decides which of them are still open at the end, and a closed one tells you which choice closed it. An endings gallery tracks the ones you have found, and after your first ending you can replay any chapter from where your last run stood. Download a share card of how your run ended.
 - **A skills summary to keep**: one page listing the tools you actually used and on which cases, the ATT&CK techniques those cases covered, and how the run went. It is a record of a game, not a certificate, and it says so.
 - **Hard mode and practice mode**: Hard mode is no hints, one attempt per case, and a tighter finale clock, for players who already know the trade. Practice mode replays any case you have closed without touching your run.

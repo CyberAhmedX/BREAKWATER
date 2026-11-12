@@ -34,6 +34,7 @@ import { QUEUE, queueAftermath, queueFor } from "../content/queue";
 import { ageOut, looksLeft, queueOpen, triageStats, waiting } from "../engine/triage";
 import { screenTriage } from "./triage";
 import { el, mount } from "./dom";
+import { chapterCard, stampCase } from "./effects";
 import { type CloseGradeInfo, type Host, isVisible, speakerFor, stat } from "./host";
 import { screenTitle, screenTrack } from "./title";
 import { screenScreening } from "./screening";
@@ -177,6 +178,7 @@ export class App implements Host {
   render(): void {
     this.renderTopbar();
     this.scene.setChapter(this.s.chapter);
+    this.castOffice();
     if (!this.started) {
       screenTitle(this);
       return;
@@ -213,6 +215,7 @@ export class App implements Host {
       recordCheckpoint(this.meta, this.s);
       saveMeta(this.meta);
       const sc = sceneById(plan.intro);
+      chapterCard(this.root, plan.title, plan.subtitle);
       if (sc) {
         playScene(this, sc, () => {
           markDone(this.s, `intro_${plan.chapter}`);
@@ -317,6 +320,16 @@ export class App implements Host {
     this.stage.className = "stage office";
     mount(this.stage, hub);
     place();
+  }
+
+  /** Put your colleagues in the room: your team lead at the other desk, and a visitor who changes each chapter. */
+  private castOffice(): void {
+    const leads = ["mags", "theo", "priya", "imani", "rook", "juno"];
+    const lead = this.s.hired && this.s.track ? (SCREENINGS.find((x) => x.dept === this.s.track)?.screener ?? null) : null;
+    const others = leads.filter((k) => k !== lead);
+    // in the blackout everyone who can be is out on a call
+    const visitor = lead && this.s.chapter >= 1 && this.s.chapter <= 4 ? others[this.s.chapter % others.length] : null;
+    this.scene.setCast(lead, visitor);
   }
 
   /** The tickets on your screen: the chapter's cases, and the side case. */
@@ -444,6 +457,8 @@ export class App implements Host {
       if (t.attack?.length) unlockCodex(this.s, "attack");
     }
     this.persist();
+
+    if (firstTime) stampCase(this.root, grade.botched, grade.wrongAttempts === 0);
 
     const rankedUp = rankIndex(this.s) > beforeRank;
     const lines = grade.botched

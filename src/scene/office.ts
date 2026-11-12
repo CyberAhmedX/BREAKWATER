@@ -1,5 +1,6 @@
 import type { Chapter } from "../engine/types";
 import { MOODS, type Mood } from "./mood";
+import { LOOKS, type Look } from "./portraits";
 
 // A hand-built pixel office rendered on a canvas. No sprite assets: everything
 // is drawn from rectangles so it ships inside the single HTML file and scales
@@ -38,6 +39,19 @@ const HOTSPOTS: { x: number; y: number; w: number; h: number; text: string }[] =
   { x: 170, y: 144, w: 30, h: 24, text: "Packet, Chief Morale Officer. Walks on keyboards and accepts bribes in tuna." },
 ];
 
+// The people you share the room with. One works at the other desk, and one is
+// usually on their feet by the window. Each answers a click with a line.
+const COWORKER_LINES: Record<string, string> = {
+  mags: "Mags has three dashboards open and trusts none of them.",
+  theo: "Theo is on his fourth coffee and his fortieth password reset.",
+  priya: "Priya watches packet captures scroll the way other people watch the sea.",
+  imani: "Dr. Vance labels everything. The stapler has a chain of custody.",
+  rook: "Rook says the hood helps with thinking. Nobody has asked twice.",
+  juno: "Juno is adding string to the board. It is hard to tell if that is a good sign.",
+};
+const SEAT = { x: 61, y: 78, w: 16, h: 18 }; // behind the left desk
+const STAND = { x: 258, y: 82, w: 14, h: 38 }; // by the window
+
 export class OfficeScene {
   private ctx: CanvasRenderingContext2D;
   private raf = 0;
@@ -48,6 +62,8 @@ export class OfficeScene {
   private bolt: [number, number][] = []; // the last strike's path, in window space
   private nextBolt = 3;
   private alertsWaiting = false;
+  private seated: string | null = null;
+  private standing: string | null = null;
   private reduced: boolean;
   private scale = 1;
   private offX = 0;
@@ -69,6 +85,12 @@ export class OfficeScene {
   setReducedMotion(on: boolean | null): void {
     this.reduced = on ?? matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (this.reduced) this.strike = 9;
+  }
+
+  /** Who is in the room: at the other desk, and on their feet. Null for nobody. */
+  setCast(seated: string | null, standing: string | null): void {
+    this.seated = seated;
+    this.standing = standing;
   }
 
   /** Whether the alert screen on your desk has something waiting on it. */
@@ -101,7 +123,10 @@ export class OfficeScene {
     const cy = (clientY - r.top) * (this.canvas.height / r.height);
     const vx = (cx - this.offX) / this.scale;
     const vy = (cy - this.offY) / this.scale;
-    const hit = HOTSPOTS.find((h) => vx >= h.x && vx <= h.x + h.w && vy >= h.y && vy <= h.y + h.h);
+    const within = (h: { x: number; y: number; w: number; h: number }): boolean => vx >= h.x && vx <= h.x + h.w && vy >= h.y && vy <= h.y + h.h;
+    if (this.seated && within(SEAT)) return COWORKER_LINES[this.seated] ?? null;
+    if (this.standing && within(STAND)) return COWORKER_LINES[this.standing] ?? null;
+    const hit = HOTSPOTS.find(within);
     return hit ? hit.text : null;
   }
 
@@ -258,6 +283,8 @@ export class OfficeScene {
     this.floorLight("255,244,214", 0.16 * (1 - Math.min(1, m.ambient * 1.6)));
     this.drawCorkboard(16, 20);
     this.drawPlant(292, 92);
+    if (this.standing) this.drawStanding(LOOKS[this.standing] ?? LOOKS.you);
+    if (this.seated) this.drawSeated(LOOKS[this.seated] ?? LOOKS.you);
     this.drawDesk(26, 96, false);
     this.drawDesk(120, 102, true);
     this.drawServerRack(286, 40);
@@ -543,6 +570,96 @@ export class OfficeScene {
     } else {
       for (let i = 0; i < 3; i++) this.px(x + 2, y + 2 + i * 3, 8 + ((i * 3) % 5), 1, "rgba(255,225,180,0.4)");
     }
+  }
+
+  /** Hair, in the handful of shapes the portraits use, on a head at (x, y), 6 wide. */
+  private drawHair(l: Look, x: number, y: number): void {
+    const h = l.hair;
+    switch (l.hairStyle) {
+      case "hood":
+        this.px(x - 2, y - 2, 10, 4, h);
+        this.px(x - 2, y, 2, 8, h);
+        this.px(x + 6, y, 2, 8, h);
+        break;
+      case "long":
+        this.px(x - 1, y - 2, 8, 3, h);
+        this.px(x - 1, y, 1, 9, h);
+        this.px(x + 6, y, 1, 9, h);
+        break;
+      case "bun":
+        this.px(x - 1, y - 2, 8, 3, h);
+        this.px(x + 2, y - 4, 3, 2, h);
+        break;
+      case "cap":
+        this.px(x - 1, y - 2, 8, 2, l.accent ?? h);
+        this.px(x + 4, y, 4, 1, l.accent ?? h);
+        break;
+      case "bald":
+        this.px(x - 1, y + 1, 1, 3, h);
+        this.px(x + 6, y + 1, 1, 3, h);
+        break;
+      case "buzz":
+        this.px(x, y - 1, 6, 2, h);
+        break;
+      default:
+        this.px(x - 1, y - 2, 8, 3, h);
+        this.px(x - 1, y, 1, 3, h);
+        this.px(x + 6, y, 1, 3, h);
+    }
+  }
+
+  private drawFace(l: Look, x: number, y: number, seed: number): void {
+    this.px(x, y, 6, 7, l.skin);
+    this.drawHair(l, x, y);
+    // eyes, with a blink every few seconds
+    const blink = !this.reduced && (this.t + seed) % 4.3 < 0.14;
+    if (!blink) {
+      this.px(x + 1, y + 3, 1, 1, "#1b1b22");
+      this.px(x + 4, y + 3, 1, 1, "#1b1b22");
+    }
+    if (l.glasses) this.px(x, y + 3, 6, 1, "rgba(20,22,30,0.55)");
+    if (l.headset) {
+      this.px(x - 1, y + 2, 1, 4, "#14161c");
+      this.px(x - 1, y + 6, 3, 1, "#14161c");
+    }
+  }
+
+  /** Your team lead, at the other desk: head and shoulders over the desk top, typing. */
+  private drawSeated(l: Look): void {
+    const t = this.reduced ? 0 : this.t;
+    // now and then they glance over at you
+    const glance = Math.sin(t * 0.37) > 0.93 ? 1 : 0;
+    const tap = Math.floor(t * 7) % 2;
+    this.px(62, 84, 14, 14, "#262a31"); // chair back
+    this.px(63, 89, 12, 8, l.shirt);
+    if (l.accent) this.px(68, 89, 2, 8, l.accent);
+    // forearms on the keyboard, one finger up at a time
+    this.px(62, 94 - tap, 2, 2, l.skin);
+    this.px(74, 93 + tap, 2, 2, l.skin);
+    this.px(67, 87, 4, 2, l.skin); // neck
+    this.drawFace(l, 66 + glance, 80, 1.3);
+  }
+
+  /** Someone on their feet by the window, with a mug. A different visitor each chapter. */
+  private drawStanding(l: Look): void {
+    const t = this.reduced ? 0 : this.t;
+    const sway = Math.sin(t * 0.8) * 0.5;
+    const sip = Math.sin(t * 0.21) > 0.9; // lifts the mug
+    const x = 261 + sway;
+    this.px(259, 118, 12, 2, "rgba(0,0,0,0.22)"); // shadow on the floor
+    this.px(x + 1, 105, 3, 13, "#2a2f3a"); // legs
+    this.px(x + 5, 105, 3, 13, "#2a2f3a");
+    this.px(x, 116, 4, 2, "#17191f"); // shoes
+    this.px(x + 5, 116, 4, 2, "#17191f");
+    this.px(x, 91, 9, 14, l.shirt);
+    if (l.accent) this.px(x + 4, 91, 2, 14, l.accent);
+    this.px(x - 1, 92, 2, 9, l.shirt); // arm at the side
+    // the other arm holds the mug, and lifts it to drink
+    const my = sip ? 90 : 96;
+    this.px(x + 8, 92, 2, sip ? 3 : 6, l.shirt);
+    this.px(x + 8, my, 4, 3, "#e9e4d8");
+    this.px(x + 3, 89, 3, 2, l.skin); // neck
+    this.drawFace(l, x + 1.5, 82, 3.1);
   }
 
   private drawServerRack(x: number, y: number): void {

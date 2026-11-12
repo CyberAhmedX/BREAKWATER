@@ -40,6 +40,11 @@ export class AudioEngine {
   private musicBus!: GainNode; // soundtrack and rain
   private musicGain!: GainNode;
   private rainGain!: GainNode;
+  private ambGain!: GainNode; // the room: server hum, a keyboard, the harbor
+  private windGain!: GainNode;
+  private chapter: Chapter = 0;
+  private nextKeys = 0;
+  private nextHorn = 0;
   private sfxGain!: GainNode; // clicks, chimes and thunder
   private started = false;
   private muted = false;
@@ -79,6 +84,14 @@ export class AudioEngine {
     this.rainGain.connect(this.musicBus);
     this.startRain();
 
+    this.ambGain = this.ac.createGain();
+    this.ambGain.gain.value = 0;
+    this.ambGain.connect(this.musicBus);
+    this.windGain = this.ac.createGain();
+    this.windGain.gain.value = 0;
+    this.windGain.connect(this.musicBus);
+    this.startRoom();
+
     this.sfxGain = this.ac.createGain();
     this.sfxGain.gain.value = this.effectsVolume;
     this.sfxGain.connect(this.master);
@@ -110,18 +123,27 @@ export class AudioEngine {
         this.nextTime += this.palette.tempo;
         this.step++;
       }
+      this.ambience();
     };
+    // the room fades in with the music, so the title screen stays quiet
+    this.ambGain.gain.setTargetAtTime(1, this.ac.currentTime, 1.5);
+    this.nextKeys = this.ac.currentTime + 2;
+    this.nextHorn = this.ac.currentTime + 20 + Math.random() * 30;
     this.timer = window.setInterval(schedule, 110);
   }
 
   stopMusic(): void {
     clearInterval(this.timer);
     this.started = false;
+    if (this.ac) this.ambGain.gain.setTargetAtTime(0, this.ac.currentTime, 0.4);
   }
 
   setChapter(ch: Chapter): void {
     this.palette = PALETTES[ch];
+    this.chapter = ch;
     if (this.ac) {
+      // the wind gets up with the gale and howls through the storm
+      this.windGain.gain.setTargetAtTime(ch === 5 ? 0.22 : ch === 4 ? 0.12 : ch === 3 ? 0.04 : 0, this.ac.currentTime, 1.5);
       const rainTarget = ch >= 5 ? 0.5 : ch >= 4 ? 0.4 : ch >= 3 ? 0.28 : ch >= 2 ? 0.12 : 0;
       this.rainGain.gain.setTargetAtTime(rainTarget, this.ac.currentTime, 1.2);
     }
@@ -197,6 +219,125 @@ export class AudioEngine {
     src.start();
   }
 
+  // ---- the room ----
+  /** Looping noise through a filter: the raw material for hum and wind. */
+  private noiseLoop(seconds: number): AudioBufferSourceNode {
+    const ac = this.ac!;
+    const len = Math.floor(seconds * ac.sampleRate);
+    const buf = ac.createBuffer(1, len, ac.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+    const src = ac.createBufferSource();
+    src.buffer = buf;
+    src.loop = true;
+    return src;
+  }
+
+  private startRoom(): void {
+    if (!this.ac) return;
+    const ac = this.ac;
+    // the server rack: mains hum, its octave, and fan noise on top
+    for (const [freq, gain] of [[60, 0.022], [120, 0.012], [180, 0.004]] as const) {
+      const o = ac.createOscillator();
+      const g = ac.createGain();
+      o.frequency.value = freq;
+      g.gain.value = gain;
+      o.connect(g);
+      g.connect(this.ambGain);
+      o.start();
+    }
+    const fan = this.noiseLoop(2);
+    const fanBand = ac.createBiquadFilter();
+    fanBand.type = "bandpass";
+    fanBand.frequency.value = 420;
+    fanBand.Q.value = 0.8;
+    const fanGain = ac.createGain();
+    fanGain.gain.value = 0.012;
+    fan.connect(fanBand);
+    fanBand.connect(fanGain);
+    fanGain.connect(this.ambGain);
+    fan.start();
+
+    // wind: noise through a narrow filter whose pitch wanders slowly
+    const wind = this.noiseLoop(3);
+    const band = ac.createBiquadFilter();
+    band.type = "bandpass";
+    band.frequency.value = 340;
+    band.Q.value = 3.5;
+    const lfo = ac.createOscillator();
+    lfo.frequency.value = 0.09;
+    const depth = ac.createGain();
+    depth.gain.value = 190;
+    lfo.connect(depth);
+    depth.connect(band.frequency);
+    wind.connect(band);
+    band.connect(this.windGain);
+    wind.start();
+    lfo.start();
+  }
+
+  /** Now and then: someone typing across the room, and a horn out in the harbor. */
+  private ambience(): void {
+    if (!this.ac) return;
+    const now = this.ac.currentTime;
+    if (now >= this.nextKeys) {
+      // a burst of keys, uneven the way real typing is
+      const keys = 4 + Math.floor(Math.random() * 14);
+      let t = now + 0.05;
+      for (let i = 0; i < keys; i++) {
+        this.keyTick(t, 0.008 + Math.random() * 0.008);
+        t += 0.07 + Math.random() * 0.12 + (Math.random() > 0.85 ? 0.25 : 0);
+      }
+      this.nextKeys = t + 2 + Math.random() * 7;
+    }
+    if (now >= this.nextHorn) {
+      // fair weather has no need of a foghorn
+      if (this.chapter >= 2) this.foghorn(now + 0.1);
+      this.nextHorn = now + 45 + Math.random() * 50;
+    }
+  }
+
+  private keyTick(t: number, gain: number): void {
+    if (!this.ac) return;
+    const o = this.ac.createOscillator();
+    const g = this.ac.createGain();
+    const f = this.ac.createBiquadFilter();
+    f.type = "bandpass";
+    f.frequency.value = 1800 + Math.random() * 1400;
+    f.Q.value = 1.2;
+    o.type = "square";
+    o.frequency.value = 140 + Math.random() * 60;
+    g.gain.setValueAtTime(gain, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.03);
+    o.connect(f);
+    f.connect(g);
+    g.connect(this.ambGain);
+    o.start(t);
+    o.stop(t + 0.05);
+  }
+
+  private foghorn(t: number): void {
+    if (!this.ac) return;
+    for (const [freq, at, dur] of [[98, 0, 2.2], [73.4, 2.4, 3]] as const) {
+      const o = this.ac.createOscillator();
+      const g = this.ac.createGain();
+      const f = this.ac.createBiquadFilter();
+      f.type = "lowpass";
+      f.frequency.value = 320;
+      o.type = "sawtooth";
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0.0001, t + at);
+      g.gain.exponentialRampToValueAtTime(0.03, t + at + 0.5);
+      g.gain.setValueAtTime(0.03, t + at + dur - 0.7);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + at + dur);
+      o.connect(f);
+      f.connect(g);
+      g.connect(this.ambGain);
+      o.start(t + at);
+      o.stop(t + at + dur + 0.05);
+    }
+  }
+
   // ---- UI sound effects ----
   private blip(freq: number, t: number, dur: number, gain: number, type: OscillatorType = "sine"): void {
     if (!this.ac) return;
@@ -241,6 +382,27 @@ export class AudioEngine {
   rankUp(): void {
     const t = this.now();
     [523, 659, 784, 1047].forEach((f, i) => this.blip(f, t + i * 0.1, 0.18, 0.09, "triangle"));
+  }
+  /** A rubber stamp coming down on the case file. */
+  stamp(bad = false): void {
+    if (!this.ac) return;
+    const t = this.now() + 0.16; // lands with the animation
+    const len = Math.floor(0.12 * this.ac.sampleRate);
+    const buf = this.ac.createBuffer(1, len, this.ac.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2);
+    const src = this.ac.createBufferSource();
+    src.buffer = buf;
+    const f = this.ac.createBiquadFilter();
+    f.type = "lowpass";
+    f.frequency.value = 700;
+    const g = this.ac.createGain();
+    g.gain.value = 0.5;
+    src.connect(f);
+    f.connect(g);
+    g.connect(this.sfxGain);
+    src.start(t);
+    this.blip(bad ? 70 : 95, t, 0.16, 0.2, "sine");
   }
   /** Thunder after a lightning strike. Closer storms crack first and roll louder. */
   thunder(strength = 1): void {
