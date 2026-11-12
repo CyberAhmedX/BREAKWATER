@@ -1,6 +1,6 @@
 <h1 align="center">BREAKWATER</h1>
 
-<p align="center">A cozy-to-dark cybersecurity career game. Screen for a team, investigate, and learn the trade one real case at a time.</p>
+<p align="center">A cozy-to-dark cybersecurity career game. Screen for a team, investigate, and learn the trade one realistic case at a time.</p>
 
 <p align="center">
   <a href="https://github.com/CyberAhmedX/BREAKWATER/releases/latest"><b>Download for Windows, macOS and Linux</b></a>
@@ -15,7 +15,7 @@
 </p>
 
 <p align="center">
-  <img src="media/demo.gif" alt="Breakwater gameplay: applying, the hands-on screening task, the alert queue, and the live finale" width="720">
+  <img src="media/demo.gif" alt="Breakwater gameplay: the main menu, the job application, the office, a case on the in-game desktop, the alert queue, and the storm" width="720">
 </p>
 
 <p align="center"><i>A breakwater holds the storm back so the harbor stays calm. Lanternhouse Security is the breakwater.</i></p>
@@ -24,7 +24,17 @@
 
 You are the newest hire at Lanternhouse Security, a small firm keeping a rainy harbor town safe. You screen for a team, close tickets, climb from Probationary Analyst to Lead, and slowly uncover what has been hiding in the quiet. Your choices lead to one of five endings.
 
-It is built for students and people getting ready for a first SOC or help desk job: the cases are real scenarios, explained as you meet them. If you already do this for a living, Hard mode turns off the hints, gives you one attempt per case, and tightens the clock in the live finale.
+It is built for students and people getting ready for a first SOC or help desk job: the cases are invented, but each is modelled on a kind of incident a first-year analyst really meets, and explained as you meet it. If you already do this for a living, Hard mode turns off the hints, gives you one attempt per case, and tightens the clock in the live finale.
+
+## What it is, exactly
+
+Breakwater is an investigation game played through text and tool screens, over a pixel-art office. You read evidence, use a tool, and answer questions about what you found. You do not walk a character around.
+
+- **One playthrough is 13 cases over five chapters**: four that every player gets, four that belong to your team, and five optional side cases. The last of your team's cases is a timed finale.
+- **You play one of six teams per run, and each team has its own tools.** A SOC player searches a SIEM and writes a detection rule. A Network player edits a firewall. Nobody sees every tool in one run: seeing all of them means playing all six teams.
+- **The tools are simulations built into the game**, not the real products. The terminal takes real command syntax and the SIEM takes Splunk-style queries, but both work only on the case's own invented files and logs.
+- **It is part hands-on, part multiple choice.** In a run, roughly four questions in ten are multiple choice. The rest ask you to type what you found, point at the line of evidence that proves it, put steps in order, or do a job on a tool.
+- **Everything in it is fictional**, and finishing it is not a qualification. It is a way to practise how an investigation is reasoned through.
 
 ## Get the game
 
@@ -33,20 +43,20 @@ It is built for students and people getting ready for a first SOC or help desk j
 
 ## Screenshots
 
-| Apply and screen for a team | Learn the trade on real cases |
+| Apply and screen for a team | Learn the trade on realistic cases |
 | :---: | :---: |
 | ![Choose a career track](media/screening-tracks.png) | ![Investigate a phishing email](media/investigation.png) |
-| **Six teams, each with a real screening** | **Evidence viewers for email, logs, flows and more** |
+| **Six teams, each with its own screening** | **Evidence viewers for email, logs, flows and more** |
 
 | It starts cozy and sunlit | It does not stay that way |
 | :---: | :---: |
 | ![Chapter one desk](media/desk-chapter1.png) | ![Chapter five, the storm](media/desk-storm.png) |
 | **Chapter One: Fair Weather** | **Chapter Five: Storm Surge** |
 
-| Do the job, not a quiz about it | Then do it against the clock |
+| Use the tool, not only pick an answer | Then do it against the clock |
 | :---: | :---: |
 | ![Searching a SIEM for the password spray](media/tool-siem.png) | ![A live incident at the boundary firewall](media/live-finale.png) |
-| **Real tools: a SIEM, a terminal, a firewall, a request editor and more** | **A live incident where every wrong move costs time** |
+| **Your team's tool, simulated in the game: here the SOC's SIEM** | **A live incident where every wrong move costs time** |
 
 | More alerts than there is time for | Keep a record of what you did |
 | :---: | :---: |
@@ -57,33 +67,22 @@ The office is where you work between cases, and the things in it are the way in:
 
 ## What makes it tick
 
-- **Six screenings**, one per team: SOC, Network, Help Desk, Forensics, Pentest, Threat Intel. Each asks four questions from a larger pool and then hands you the team's own tool for one small job, so you have driven the real thing before your first case, and a retry is a fresh screening. Pass one to get hired, and your team shapes the whole run: its own cases through the story, its own hard choice, its own part in the live finale, and a secret only your team can find.
-- **A five-chapter main investigation** built from accurate scenarios: phishing, business email compromise, DNS tunneling, forensic timelines, scoped pentests, threat correlation, and a live incident at the water plant.
+### In every run
+
+- **Six screenings**, one per team: SOC, Network, Help Desk, Forensics, Pentest, Threat Intel. Each asks four questions drawn from a pool of nine and then hands you the team's own tool for one small job, so you have used it once before your first case, and a retry is a fresh screening. Pass one to get hired, and your team shapes the whole run: its own cases through the story, its own hard choice, its own part in the live finale, and a secret only your team can find.
+- **A five-chapter main investigation** built from realistic scenarios: phishing, business email compromise, DNS tunneling, and a live incident at the water plant.
 - **A side case in every chapter**, from a cat on the keyboard to a backup audit, a cast of coworkers, and **Field Notes** that unlock plain explanations of each concept as you meet it.
 - **An alert queue you cannot finish**: from chapter two, five alerts arrive each chapter and there is time to open three. The tool's severity is as misleading as a real one's: the loud ones are mostly backups, scanners and weather, and the real ones tend to arrive marked low. What you catch, and what you let age out, comes back in the next chapter.
-- **A real terminal**: dig through case files with `grep`, `cut`, `sort | uniq -c`, `sha256sum` and pipes, then type what you found. Any command that finds it counts.
-- **Cases that change between runs**: ten cases are built fresh each run, so the addresses, account names, clocks, scope ranges and the machine at fault are not the same twice. Replaying means reading the evidence again, not recalling an answer.
-- **A SIEM to search**: Splunk-style queries like `action=failure | stats count by src_ip | sort -count`, over hundreds of events.
-- **A firewall to fix**: write ufw-style rules, replay real traffic, and watch each flow get allowed or blocked. The first matching rule wins, just like the real thing.
-- **An admin console**: lock down a hijacked account yourself. Reset the password, sign out every session, remove the attacker's mail rule, fix MFA, in the right order.
-- **A timeline builder**: merge logs stamped by different clocks onto UTC. Get a time zone wrong and the malware calls home before the USB stick was plugged in. Plus `xxd` in the terminal, to read a file's magic bytes.
-- **A request editor**: edit a request to a fictional booking site, send it, and read the reply. Change the booking id to prove a broken-access-control bug yourself, the way a pentester would. Earlier, on a lab copy of an old admin login, show that it never locks and then walk in with a five-year-old password.
-- **A pivot board**: follow a domain to its address and on to the rest of an actor's infrastructure through passive DNS, so a block list covers all of it, not just the one name you were handed.
+- **A terminal**, in the school DNS case that every player works: dig through the case files with `grep`, `cut`, `sort | uniq -c` and pipes, then type what you found. Any command that finds it counts. It is a simulated, read-only shell with 14 commands, not a real machine.
 - **Raw email headers**: read a message's full source, work down the Received chain to where it really came from, and see why an SPF pass on the wrong domain means nothing.
-- **A scope checker**: before you touch an address, check it against the engagement letter, with the subnet maths done for you. Exclusions win, and anything not listed is out.
-- **A CVSS calculator**: rate a finding across the eight v3.1 metrics and get the same score the official calculator gives.
-- **Indicators and defanging**: pull the indicators out of a report, defang them so nobody clicks one, and hand over a block list that covers the actor without catching the innocent bystander on the same host.
-- **ATT&CK mapping**: look techniques up in an offline matrix, then map what the attacker did to the real technique IDs yourself.
-- **Write a detection rule**: build a SIEM rule and test it against a replay of real attacks and false alarms. Catch the attack, stay quiet on everything else.
-- **Write the incident report**: put it in your own words, checked for the root cause, what acted and from where, honest attribution, and a concrete fix.
-- **A live finale**: chapter five runs against a clock. Relaxed timers doubles it, and the choices you made earlier can shorten it.
-- **Take-home files**: download the block list and detection rule from a solved case, to keep or to adapt.
 - **Click the evidence**: some questions ask you to point at the exact log row, email header, timeline event or process that proves it, the way an analyst would.
+- **Cases that change between runs**: ten cases are built fresh each run, so the addresses, account names, clocks, scope ranges and the machine at fault are not the same twice. Replaying means reading the evidence again, not recalling an answer.
+- **A live finale**: your team's chapter five case runs against a clock. Relaxed timers doubles it, and the choices you made earlier can shorten it.
+- **A desktop to work on**: a case opens on LanternOS, with each piece of evidence in its own window, a taskbar, and minimize and maximize for when a tool wants the whole screen. The windows are tiled, not free-floating.
 - **Hints that cost XP** when you are stuck, so guessing is never cheaper than reading.
 - **MITRE ATT&CK tags** on each solved case, naming the real technique it covered (for example T1566 Phishing).
 - **XP and ranks**: climb from Probationary Analyst to Lead Analyst as you close cases.
-- **A desktop to work on**: a case opens on LanternOS, with each piece of evidence in its own window, a taskbar, and minimize and maximize for when a tool wants the whole screen.
-- **Original procedural music and sound**, synthesized live in the browser: the soundtrack, the rain, the hum of the server rack, a keyboard across the room, a foghorn in the harbor. Nothing is sampled or copied.
+- **Original procedural music and sound**, synthesized as you play: the soundtrack, the rain, the hum of the server rack, a keyboard across the room, a foghorn in the harbor. Nothing is sampled or copied.
 - **Five endings** driven by your choices about integrity, trust, and the truth. What you did in chapters three and four decides which of them are still open at the end, and a closed one tells you which choice closed it. An endings gallery tracks the ones you have found, and after your first ending you can replay any chapter from where your last run stood. Download a share card of how your run ended.
 - **A skills summary to keep**: one page listing the tools you actually used and on which cases, the ATT&CK techniques those cases covered, and how the run went. It is a record of a game, not a certificate, and it says so.
 - **Hard mode and practice mode**: Hard mode is no hints, one attempt per case, and a tighter finale clock, for players who already know the trade. Practice mode replays any case you have closed without touching your run.
@@ -91,6 +90,21 @@ The office is where you work between cases, and the things in it are the way in:
 - **Achievements** for how you played, like keeping the evidence chain intact, finishing on hard mode, or closing every case right on the first try.
 - **Settings** for music and effects volume, text size, reduced motion, relaxed timers, and fast dialogue (show each conversation at once).
 - **Export and import saves** as a file or a short code, to back up a run or carry it to another browser or device.
+
+### Your team's tools
+
+You get the tools of the team you joined, across that team's four cases. To use the others, play again on another team.
+
+| Team | What you do with its tools |
+| :-- | :-- |
+| **SOC** | **Search a SIEM** with Splunk-style queries like `action=failure \| stats count by src_ip \| sort -count`. The largest case has about 350 events, the others a few dozen or fewer. **Write a detection rule** and test it against a replay of the attack and of false alarms: catch the attack, stay quiet on everything else. |
+| **Network** | **Fix a firewall**: write ufw-style rules, replay the case's traffic, and watch each flow get allowed or blocked. The first matching rule wins, as on a real firewall. |
+| **Help Desk** | **Work an admin console**: lock down a hijacked account yourself. Reset the password, sign out every session, remove the attacker's mail rule, fix MFA, in the right order. **Write the incident report** in your own words, checked for the root cause, what acted and from where, honest attribution, and a concrete fix. |
+| **Forensics** | **Build a timeline**: merge logs stamped by different clocks onto UTC. Get a time zone wrong and the malware calls home before the USB stick was plugged in. More terminal work, with `sha256sum` and `xxd` to read a file's magic bytes, and an incident report of your own. |
+| **Pentest** | **Check scope** before you touch an address, against the engagement letter, with the subnet maths done for you. Exclusions win, and anything not listed is out. **Edit requests** to a fictional booking site to prove a broken-access-control bug yourself, and to a lab copy of an old admin login that never locks. **Rate findings with a CVSS calculator** across the eight v3.1 metrics, scored by the published v3.1 formula. |
+| **Threat Intel** | **Pivot** from a domain to its address and on to the rest of an actor's infrastructure through passive DNS. **Pull indicators** out of a report and defang them, for a block list that covers the actor without catching the innocent bystander on the same host. **Map behaviour to ATT&CK** technique IDs, with an offline matrix to look them up in. |
+
+The finales of four teams (SOC, Network, Forensics and Threat Intel) let you download a file from the solved case, such as the block list or the firewall rules, to keep or adapt.
 
 ## Everything here is fictional and safe
 
@@ -127,7 +141,7 @@ The installers are not code signed. Windows asks before running one for the firs
 
 The website is built with `VITE_DEMO=1 npm run build`, which stops after chapter two and points to the download. Every other build, the desktop app included, is the full game.
 
-The production build is one self-contained `dist/index.html` of about 750 KB, fonts included. It makes no network requests, so it works offline and can be hosted anywhere.
+The production build is one self-contained `dist/index.html` of about 800 KB, fonts included. It makes no network requests, so it works offline and can be hosted anywhere.
 
 ## Project layout
 
@@ -148,7 +162,7 @@ media/       screenshots and the demo clip
 
 ## Tech
 
-TypeScript, Vite, Vitest, Playwright, ESLint. No game engine and no runtime framework. CI runs lint, typecheck and tests on every push, then plays the built game in a real browser to every ending; a push to main deploys the demo to GitHub Pages, and a version tag builds the installers.
+TypeScript, Vite, Vitest, Playwright, ESLint, and Tauri for the desktop app. No game engine and no runtime framework. CI runs lint, typecheck and tests on every push, then plays the built game in a real browser to every ending; a push to main deploys the demo to GitHub Pages, and a version tag builds the installers.
 
 See `CREDITS.md` for asset provenance and `PRIVACY.md` for the privacy note.
 
