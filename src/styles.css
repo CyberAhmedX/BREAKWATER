@@ -303,25 +303,7 @@ body {
 .skills-attack { margin: 0; }
 
 /* ------------------------------------------------------------------ alert queue */
-.alert-panel {
-  max-width: 900px;
-  box-sizing: border-box;
-  margin: 16px auto 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  padding: 14px 16px;
-  border-radius: 12px;
-  background: var(--panel);
-  border: 1px solid rgba(70, 198, 184, 0.45);
-  box-shadow: var(--shadow);
-}
-.alert-panel.worked { border-color: var(--edge); }
-.alert-panel-k { font-family: var(--display); font-size: calc(11px * var(--ts)); letter-spacing: 1px; text-transform: uppercase; color: var(--teal); }
-.alert-panel.worked .alert-panel-k { color: var(--muted); }
 .alert-panel-note { margin: 4px 0 0; color: var(--fg-dim); font-size: calc(14px * var(--ts)); }
-.alert-panel .btn { flex: none; }
 .triage-list { max-width: 900px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; }
 .stage.triage .coach { max-width: 900px; box-sizing: border-box; margin: 0 auto 14px; background: #10262b; }
 .alert { background: var(--panel); border: 1px solid var(--edge); border-radius: 12px; padding: 14px 16px; box-shadow: var(--shadow); }
@@ -335,7 +317,6 @@ body {
 .al-verdict { font-weight: 600; margin: 0 0 4px; }
 .alert .al-verdict.muted { font-weight: 400; margin: 0; }
 @media (max-width: 620px) {
-  .alert-panel { flex-direction: column; align-items: stretch; }
 }
 
 /* ------------------------------------------------------------------ screening */
@@ -453,6 +434,56 @@ body {
 .tk-check { margin-left: auto; color: var(--good); font-family: var(--mono); }
 .tk-title { font-weight: 600; font-size: calc(15.5px * var(--ts)); }
 .tk-client { font-size: calc(13px * var(--ts)); color: var(--fg-dim); }
+/* The office hub: the room itself is the desk screen. The heading is a slim
+   strip, and each thing you can use has a button laid over it in the scene. */
+.stage.office { padding: 0; overflow: hidden; }
+body:has(.office-hub) #scrim { opacity: 0.3; }
+#scrim { transition: opacity 0.5s; }
+.office-hub { position: relative; height: 100%; display: flex; flex-direction: column; justify-content: space-between; align-items: center; padding: 14px 16px 22px; }
+.hub-head { width: min(520px, 100%); margin: 0; padding: 12px 18px; text-align: center; }
+.hub-head .chapter-title { font-size: calc(clamp(18px, 3vw, 24px) * var(--ts)); margin: 2px 0 4px; }
+.hub-head .desk-note, .hub-head .alert-panel-note { margin: 0; font-size: calc(13.5px * var(--ts)); }
+.hub-head .alert-panel-note { color: var(--amber-soft); }
+.hub-bottom { display: flex; flex-direction: column; align-items: center; gap: 12px; width: 100%; }
+.hub-bottom .desk-footer { margin: 0; }
+.hub-dock { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+
+.hot { font: inherit; color: var(--fg); cursor: pointer; background: var(--panel); border: 1px solid var(--edge); border-radius: 10px; padding: 8px 14px; }
+.hot-tag { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; white-space: nowrap; }
+.hot-name { font-family: var(--display); font-size: calc(13px * var(--ts)); letter-spacing: 1px; color: var(--amber); }
+.hot-sub { font-family: var(--mono); font-size: calc(11.5px * var(--ts)); color: var(--fg-dim); }
+.hot:hover, .hot:focus-visible { border-color: var(--teal); outline: none; }
+.hot.lively .hot-sub { color: var(--teal); }
+
+/* laid over its object: the button is the object, and the tag floats above it */
+.hot.placed { position: fixed; padding: 0; background: none; border: 2px solid transparent; border-radius: 6px; }
+.hot.placed .hot-tag {
+  position: absolute;
+  bottom: calc(100% + 12px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--panel);
+  border: 1px solid var(--edge);
+  border-radius: 8px;
+  padding: 6px 10px;
+  box-shadow: var(--shadow);
+  transition: border-color 0.15s, transform 0.15s;
+}
+.hot.placed .hot-tag::after { content: ""; position: absolute; top: 100%; left: 50%; margin-left: -5px; border: 5px solid transparent; border-top-color: var(--edge); }
+.hot.placed.hot-tickets .hot-tag { left: auto; right: 0; transform: none; }
+.hot.placed.hot-tickets .hot-tag::after { left: auto; right: 22px; }
+.hot.placed.hot-alerts .hot-tag { left: 0; transform: none; }
+.hot.placed.hot-alerts .hot-tag::after { left: 22px; }
+/* the board is big enough to carry its own label */
+.hot.placed.hot-board .hot-tag { bottom: 10px; }
+.hot.placed.hot-board .hot-tag::after { display: none; }
+.hot.placed:hover, .hot.placed:focus-visible { border-color: var(--amber); box-shadow: 0 0 18px rgba(228, 169, 74, 0.55), inset 0 0 12px rgba(228, 169, 74, 0.25); }
+.hot.placed:hover .hot-tag, .hot.placed:focus-visible .hot-tag { border-color: var(--amber); }
+.hot.placed.lively .hot-tag { animation: bob 1.6s ease-in-out infinite; }
+.hot.placed.hot-tickets.lively .hot-tag, .hot.placed.hot-alerts.lively .hot-tag { animation-name: bob-flat; }
+@keyframes bob { 0%, 100% { transform: translate(-50%, 0); } 50% { transform: translate(-50%, -4px); } }
+@keyframes bob-flat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+
 .desk-footer { max-width: 900px; margin: 22px auto 0; display: flex; justify-content: center; }
 .desk-footer .muted { color: var(--fg-dim); background: rgba(8, 12, 20, 0.82); padding: 6px 14px; border-radius: 8px; margin: 0; }
 .muted { color: var(--muted); font-size: calc(13.5px * var(--ts)); }

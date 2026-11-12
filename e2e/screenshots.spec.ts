@@ -36,7 +36,7 @@ test("screenshot: desk-chapter1", async ({ page }) => {
   }, [CH1_SAVE, META]);
   await page.reload();
   await page.getByRole("button", { name: /^Continue as/ }).click();
-  await expect(page.locator(".queue")).toBeVisible();
+  await expect(page.locator(".office-hub")).toBeVisible();
   await page.waitForTimeout(600);
   await page.screenshot({ path: "media/desk-chapter1.png" });
 });
@@ -50,7 +50,8 @@ test("screenshot: investigation", async ({ page }) => {
   }, [CH1_SAVE, META]);
   await page.reload();
   await page.getByRole("button", { name: /^Continue as/ }).click();
-  await expect(page.locator(".queue")).toBeVisible();
+  await expect(page.locator(".office-hub")).toBeVisible();
+  await page.locator(".hot-tickets").click();
   // Click the main phishing case
   await page.locator(".ticket-card:not(.done):not(.side)").first().click();
   // Wait for the briefing dialogue, click through it
@@ -77,7 +78,7 @@ test("screenshot: desk-storm", async ({ page }) => {
   }, [CH5_SAVE, META]);
   await page.reload();
   await page.getByRole("button", { name: /^Continue as/ }).click();
-  await expect(page.locator(".queue")).toBeVisible();
+  await expect(page.locator(".office-hub")).toBeVisible();
   await page.waitForTimeout(600);
   await page.screenshot({ path: "media/desk-storm.png" });
 });
@@ -91,7 +92,8 @@ test("screenshot: live-finale", async ({ page }) => {
   }, [CH5_SAVE, META]);
   await page.reload();
   await page.getByRole("button", { name: /^Continue as/ }).click();
-  await expect(page.locator(".queue")).toBeVisible();
+  await expect(page.locator(".office-hub")).toBeVisible();
+  await page.locator(".hot-tickets").click();
   // Click the plant recon case (the main critical case)
   await page.locator(".ticket-card:not(.done):not(.side)").first().click();
   // Click through the briefing dialogue
@@ -120,7 +122,8 @@ test("screenshot: tool-siem", async ({ page }) => {
   }, [CH5_SAVE, META]);
   await page.reload();
   await page.getByRole("button", { name: /^Continue as/ }).click();
-  await expect(page.locator(".queue")).toBeVisible();
+  await expect(page.locator(".office-hub")).toBeVisible();
+  await page.locator(".hot-tickets").click();
   // Click the plant recon case
   await page.locator(".ticket-card:not(.done):not(.side)").first().click();
   // Click through the briefing dialogue

@@ -262,6 +262,7 @@ test("the chapter five finale runs live and hands out take-home files", async ({
   });
   await page.reload();
   await page.getByRole("button", { name: /^Continue as/ }).click();
+  await page.locator(".hot-tickets").click();
   await page.locator(".ticket-card", { hasText: "Something is in the plant network" }).click();
   while (await page.locator(".vn[role=button]").count()) await page.locator(".vn[role=button]").click();
   await expect(page.locator(".live-clock")).toBeVisible();

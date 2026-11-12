@@ -76,7 +76,7 @@ export const MOODS: Record<Chapter, Mood> = {
     sky: ["#11151d", "#1d242f"],
     room: "#3a3a40",
     floor: "#2c2730",
-    ambient: 0.78,
+    ambient: 0.64,
     rain: 1,
     lightning: true,
     emergency: true,

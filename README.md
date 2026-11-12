@@ -46,7 +46,7 @@ It is built for students and people getting ready for a first SOC or help desk j
 | ![The alert queue in chapter two](media/alert-queue.png) | ![The skills summary](media/skills-summary.png) |
 | **Five alerts, time for three, and the loud ones are mostly noise** | **The tools you used, the techniques you met, and how the run went** |
 
-The office darkens with the story: cozy and sunlit at first, then rain, then a storm blackout lit by emergency red. Lighting, weather, and the soundtrack all shift per chapter.
+The office is where you work between cases, and the things in it are the way in: your screen opens the tickets, the second screen blinks when alerts are waiting, and the corkboard holds your Field Notes. It darkens with the story: cozy and sunlit at first, then rain on the glass, then a storm blackout where the lamps gutter, a red beacon turns on the wall and lightning throws the window across the floor. Lighting, weather, and the soundtrack all shift per chapter.
 
 ## What makes it tick
 

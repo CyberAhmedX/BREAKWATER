@@ -15,6 +15,18 @@ interface Drop {
 const VW = 320; // virtual pixel width
 const VH = 180; // virtual pixel height
 
+// The window onto the harbor. Weather stays on the far side of the glass.
+const WIN = { x: 150, y: 14, w: 120, h: 70 };
+
+// The things on and around your desk that do something when used, in virtual
+// coordinates. The desk screen lays real buttons over these.
+export type OfficeObject = "tickets" | "alerts" | "board";
+const OBJECTS: Record<OfficeObject, { x: number; y: number; w: number; h: number }> = {
+  tickets: { x: 128, y: 82, w: 26, h: 18 },
+  alerts: { x: 158, y: 86, w: 20, h: 14 },
+  board: { x: 16, y: 20, w: 60, h: 42 },
+};
+
 // Clickable bits of the office, in virtual coordinates, each with a line of
 // flavor. Rectangles match what draw() lays down (corkboard, window, plant,
 // server rack, the cat).
@@ -32,8 +44,10 @@ export class OfficeScene {
   private drops: Drop[] = [];
   private mood: Mood = MOODS[0];
   private t = 0;
-  private flash = 0;
+  private strike = 9; // seconds since the last lightning strike
+  private bolt: [number, number][] = []; // the last strike's path, in window space
   private nextBolt = 3;
+  private alertsWaiting = false;
   private reduced: boolean;
   private scale = 1;
   private offX = 0;
@@ -54,7 +68,25 @@ export class OfficeScene {
   /** null follows the system setting. */
   setReducedMotion(on: boolean | null): void {
     this.reduced = on ?? matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (this.reduced) this.flash = 0;
+    if (this.reduced) this.strike = 9;
+  }
+
+  /** Whether the alert screen on your desk has something waiting on it. */
+  setAlertsWaiting(on: boolean): void {
+    this.alertsWaiting = on;
+  }
+
+  /** Where an object sits on the page, in CSS pixels, for laying a button over it. */
+  rectOf(name: OfficeObject): { left: number; top: number; width: number; height: number } {
+    const o = OBJECTS[name];
+    const r = this.canvas.getBoundingClientRect();
+    const k = r.width / (this.canvas.width || 1);
+    return {
+      left: r.left + (this.offX + o.x * this.scale) * k,
+      top: r.top + (this.offY + o.y * this.scale) * k,
+      width: o.w * this.scale * k,
+      height: o.h * this.scale * k,
+    };
   }
 
   setChapter(ch: Chapter): void {
@@ -102,37 +134,60 @@ export class OfficeScene {
     this.offY = (this.canvas.height - VH * this.scale) / 2;
   };
 
+  // Rain lives in the window's own space: it falls outside, past the glass.
   private newDrop(seed = false): Drop {
     return {
-      x: Math.random() * (VW + 40) - 20,
-      y: seed ? Math.random() * VH : -10,
-      len: 4 + Math.random() * 6,
-      spd: 180 + Math.random() * 120,
+      x: Math.random() * (WIN.w + 30),
+      y: seed ? Math.random() * WIN.h : -8,
+      len: 3 + Math.random() * 5,
+      spd: 110 + Math.random() * 90,
     };
   }
 
   private update(dt: number): void {
     this.t += dt;
+    this.strike += dt;
     // Strikes keep their rhythm with reduced motion on, so the thunder still
     // rolls in; only the flash on screen is left out.
     if (this.mood.lightning) {
       this.nextBolt -= dt;
       if (this.nextBolt <= 0) {
-        if (!this.reduced) this.flash = 1;
+        if (!this.reduced) {
+          this.strike = 0;
+          this.bolt = this.newBolt();
+        }
         this.nextBolt = 4 + Math.random() * 7;
         this.onStrike?.();
       }
     }
-    if (this.flash > 0) this.flash = Math.max(0, this.flash - dt * 3);
     if (this.reduced) return;
-    const rain = this.mood.rain;
-    const active = Math.floor(this.drops.length * rain);
+    const active = Math.floor(this.drops.length * this.mood.rain);
     for (let i = 0; i < active; i++) {
       const d = this.drops[i];
       d.y += d.spd * dt;
-      d.x -= d.spd * 0.25 * dt;
-      if (d.y > VH + 10) Object.assign(d, this.newDrop());
+      d.x -= d.spd * 0.3 * dt;
+      if (d.y > WIN.h + 8) Object.assign(d, this.newDrop());
     }
+  }
+
+  /** A jagged path from the top of the window down toward the sea. */
+  private newBolt(): [number, number][] {
+    let x = 12 + Math.random() * (WIN.w - 50);
+    const pts: [number, number][] = [[x, 0]];
+    for (let y = 6; y < WIN.h - 22; y += 5 + Math.random() * 5) {
+      x += (Math.random() - 0.5) * 12;
+      pts.push([x, y]);
+    }
+    return pts;
+  }
+
+  /** How bright the lightning is right now, 0 to 1: a hard flash, a stutter, then a fade. */
+  private flashNow(): number {
+    const s = this.strike;
+    if (s < 0.07) return 1;
+    if (s < 0.13) return 0.25;
+    if (s < 0.2) return 0.85;
+    return s < 0.7 ? 0.85 * (1 - (s - 0.2) / 0.5) : 0;
   }
 
   // ---- pixel helpers (virtual coordinates) ----
@@ -146,16 +201,49 @@ export class OfficeScene {
     );
   }
 
+  private sx(x: number): number {
+    return this.offX + x * this.scale;
+  }
+  private sy(y: number): number {
+    return this.offY + y * this.scale;
+  }
+
+  /** A soft round pool of light, centred on a virtual point. */
+  private glow(x: number, y: number, radius: number, rgb: string, alpha: number): void {
+    if (alpha <= 0) return;
+    const c = this.ctx;
+    const g = c.createRadialGradient(this.sx(x), this.sy(y), 0, this.sx(x), this.sy(y), radius * this.scale);
+    g.addColorStop(0, `rgba(${rgb},${alpha})`);
+    g.addColorStop(1, `rgba(${rgb},0)`);
+    c.fillStyle = g;
+    c.fillRect(this.sx(x - radius), this.sy(y - radius), radius * 2 * this.scale, radius * 2 * this.scale);
+  }
+
+  /** Light from the window lying across the floor. */
+  private floorLight(rgb: string, alpha: number): void {
+    if (alpha <= 0) return;
+    const c = this.ctx;
+    const g = c.createLinearGradient(0, this.sy(118), 0, this.sy(VH));
+    g.addColorStop(0, `rgba(${rgb},${alpha})`);
+    g.addColorStop(1, `rgba(${rgb},0)`);
+    c.fillStyle = g;
+    c.beginPath();
+    c.moveTo(this.sx(WIN.x + 6), this.sy(118));
+    c.lineTo(this.sx(WIN.x + WIN.w - 6), this.sy(118));
+    c.lineTo(this.sx(WIN.x + WIN.w - 46), this.sy(VH));
+    c.lineTo(this.sx(WIN.x - 70), this.sy(VH));
+    c.closePath();
+    c.fill();
+  }
+
   private draw(): void {
     const c = this.ctx;
     const m = this.mood;
+    const flash = this.flashNow();
     c.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
-    // window sky (gradient), seen through the back wall
-    const sky = c.createLinearGradient(0, this.offY, 0, this.offY + VH * this.scale);
-    sky.addColorStop(0, m.sky[0]);
-    sky.addColorStop(1, m.sky[1]);
-    c.fillStyle = sky;
+    // beyond the edges of the room
+    c.fillStyle = m.room;
     c.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
     // back wall
@@ -165,42 +253,32 @@ export class OfficeScene {
     // floor seam
     this.px(0, 118, VW, 2, "rgba(0,0,0,0.18)");
 
-    this.drawWindow(150, 14, 120, 70);
-    this.drawLighthouse();
+    this.drawWindow(flash);
+    // daylight on the floor: strong on a fair morning, gone by the storm
+    this.floorLight("255,244,214", 0.16 * (1 - Math.min(1, m.ambient * 1.6)));
     this.drawCorkboard(16, 20);
     this.drawPlant(292, 92);
-    this.drawDesk(26, 96, m.lampWarm, false);
-    this.drawDesk(120, 102, m.lampWarm, true);
+    this.drawDesk(26, 96, false);
+    this.drawDesk(120, 102, true);
     this.drawServerRack(286, 40);
+    if (m.emergency) this.px(104, 6, 8, 5, "#3a1418"); // the beacon's housing
     this.drawCat(176, 150, this.t);
 
-    // rain in front of the window
-    if (!this.reduced && m.rain > 0) this.drawRain();
-
-    // ambient darkness overlay
+    // the room goes dark with the weather
     if (m.ambient > 0) {
       c.fillStyle = `rgba(6,8,16,${m.ambient})`;
       c.fillRect(0, 0, this.canvas.width, this.canvas.height);
     }
 
-    // warm pools under the desk lamps punch back through the dark
-    if (m.lampWarm > 0) {
-      this.lampGlow(44, 104, m.lampWarm);
-      this.lampGlow(150, 110, m.lampWarm);
+    // what little light the storm sky has still comes in at the window, so
+    // the room keeps its shapes even at its darkest
+    if (m.ambient > 0.3) {
+      this.glow(WIN.x + WIN.w / 2, WIN.y + WIN.h, 150, "120,150,205", 0.16 * m.ambient);
+      this.floorLight("120,150,205", 0.12 * m.ambient);
     }
 
-    // emergency red wash in the finale
-    if (m.emergency) {
-      const pulse = 0.12 + 0.12 * (0.5 + 0.5 * Math.sin(this.t * 2.2));
-      c.fillStyle = `rgba(190,30,45,${pulse})`;
-      c.fillRect(0, 0, this.canvas.width, this.canvas.height);
-    }
-
-    // lightning flash
-    if (this.flash > 0) {
-      c.fillStyle = `rgba(200,220,255,${this.flash * 0.5})`;
-      c.fillRect(0, 0, this.canvas.width, this.canvas.height);
-    }
+    // ...and everything that makes its own light comes back through it
+    this.drawLights(flash);
 
     // soft vignette
     const v = c.createRadialGradient(
@@ -217,23 +295,149 @@ export class OfficeScene {
     c.fillRect(0, 0, this.canvas.width, this.canvas.height);
   }
 
-  private drawWindow(x: number, y: number, w: number, h: number): void {
+  /** Screens, lamps, status lights, the emergency beacon and lightning. Drawn over the dark. */
+  private drawLights(flash: number): void {
+    const c = this.ctx;
+    const m = this.mood;
+    const dark = m.ambient;
+
+    // desk lamps: steady, until the power goes and they gutter
+    let lamp = m.lampWarm;
+    if (m.emergency) lamp = this.reduced ? 0.4 : 0.4 + 0.25 * Math.max(0, Math.sin(this.t * 23) * Math.sin(this.t * 3.1));
+    if (lamp > 0) {
+      for (const [bx, by] of [[82, 82], [176, 88]] as const) {
+        c.save();
+        c.globalAlpha = Math.min(1, lamp + 0.2);
+        this.px(bx + 1, by + 1, 4, 3, "#ffd27a");
+        c.restore();
+        this.glow(bx + 3, by + 10, 46, "255,205,120", 0.3 * lamp);
+      }
+    }
+
+    // screens stay lit, and throw their colour on the desk
+    if (dark > 0.15) {
+      this.drawScreens();
+      this.glow(47, 88, 30, "70,200,190", 0.22 * dark);
+      this.glow(141, 93, 34, "70,200,190", 0.3 * dark);
+      this.glow(168, 95, 22, this.alertGlow(), 0.3 * dark);
+      this.drawRackLeds(286, 40);
+      this.glow(305, 76, 26, "89,217,138", 0.1 * dark);
+      // the cat is watching
+      this.px(194, 152, 1, 1, "#b8f5cf");
+    }
+
+    // the finale: mains power is gone and a red beacon turns on the wall
+    if (m.emergency) {
+      const turn = this.reduced ? 0.6 : Math.pow(0.5 + 0.5 * Math.sin(this.t * 3.2), 2);
+      c.fillStyle = `rgba(170,24,38,${0.07 + 0.13 * turn})`;
+      c.fillRect(0, 0, this.canvas.width, this.canvas.height);
+      this.px(105, 7, 6, 3, turn > 0.5 ? "#ff5a5f" : "#a3262d");
+      this.glow(108, 9, 150, "235,45,60", 0.1 + 0.4 * turn);
+      this.glow(108, 9, 16, "255,150,150", 0.25 + 0.5 * turn);
+    }
+
+    // lightning: the window blazes, light falls across the floor, the room lifts
+    if (flash > 0) {
+      c.fillStyle = `rgba(214,228,255,${flash * 0.55})`;
+      c.fillRect(this.sx(WIN.x), this.sy(WIN.y), WIN.w * this.scale, WIN.h * this.scale);
+      this.floorLight("200,220,255", flash * 0.5);
+      this.glow(WIN.x + WIN.w / 2, WIN.y + WIN.h / 2, 190, "190,212,255", flash * 0.3);
+      c.fillStyle = `rgba(200,220,255,${flash * 0.1})`;
+      c.fillRect(0, 0, this.canvas.width, this.canvas.height);
+      // the frame stands black against it
+      this.drawWindowFrame(`rgba(10,12,18,${Math.min(1, flash * 1.4)})`);
+    }
+  }
+
+  private alertGlow(): string {
+    return this.alertsWaiting ? "255,170,70" : "200,130,70";
+  }
+
+  private drawWindow(flash: number): void {
+    const c = this.ctx;
+    const m = this.mood;
+    const { x, y, w, h } = WIN;
+    const t = this.reduced ? 0 : this.t;
     this.px(x - 3, y - 3, w + 6, h + 6, "#8a7a63"); // frame
-    const sky = this.ctx.createLinearGradient(0, this.offY, 0, this.offY + (y + h) * this.scale);
-    sky.addColorStop(0, this.mood.sky[0]);
-    sky.addColorStop(1, this.mood.sky[1]);
-    this.ctx.fillStyle = sky;
-    this.ctx.fillRect(
-      this.offX + x * this.scale,
-      this.offY + y * this.scale,
-      w * this.scale,
-      h * this.scale,
-    );
-    // distant sea
-    this.px(x, y + h - 20, w, 20, "rgba(40,70,90,0.5)");
-    // mullions
-    this.px(x + w / 2 - 1, y, 2, h, "#6f6250");
-    this.px(x, y + h / 2 - 1, w, 2, "#6f6250");
+
+    c.save();
+    c.beginPath();
+    c.rect(this.sx(x), this.sy(y), w * this.scale, h * this.scale);
+    c.clip();
+
+    const sky = c.createLinearGradient(0, this.sy(y), 0, this.sy(y + h));
+    sky.addColorStop(0, m.sky[0]);
+    sky.addColorStop(1, m.sky[1]);
+    c.fillStyle = sky;
+    c.fillRect(this.sx(x), this.sy(y), w * this.scale, h * this.scale);
+
+    // cloud banks roll in as the weather turns
+    if (m.rain > 0.1) {
+      const shade = `rgba(8,12,20,${0.05 + m.rain * 0.09})`;
+      for (let i = 0; i < 7; i++) {
+        const span = w + 140;
+        const cx = ((i * 47 + t * (2 + (i % 4))) % span) - 70;
+        const cy = y + ((i * 5) % 16);
+        // each bank is a few long strips, stepped like a pixel cloud
+        this.px(x + cx, cy + 2, 70 + ((i * 13) % 30), 3, shade);
+        this.px(x + cx + 10, cy, 44 + ((i * 7) % 20), 3, shade);
+        this.px(x + cx + 6, cy + 4, 52, 2, shade);
+      }
+    }
+
+    // the bolt itself, for the first instant of a strike
+    if (flash > 0 && this.strike < 0.2 && this.bolt.length > 1) {
+      c.strokeStyle = "rgba(240,246,255,0.95)";
+      c.lineWidth = Math.max(1.5, this.scale * 0.8);
+      c.lineJoin = "miter";
+      c.beginPath();
+      this.bolt.forEach(([bx, by], i) => (i ? c.lineTo(this.sx(x + bx), this.sy(y + by)) : c.moveTo(this.sx(x + bx), this.sy(y + by))));
+      c.stroke();
+    }
+
+    // the sea: flat on a fair day, heaving in a gale
+    const swell = m.rain * 3;
+    this.px(x, y + h - 20 - swell, w, 20 + swell, "rgba(40,70,90,0.55)");
+    for (let row = 0; row < 4; row++) {
+      const wy = y + h - 17 - swell + row * 5;
+      for (let i = 0; i < 6; i++) {
+        const wx = ((i * 23 + row * 9 + t * (4 + row * 2) * (0.4 + m.rain)) % (w + 20)) - 10;
+        this.px(x + wx, wy + Math.sin(t * 1.3 + i + row) * swell * 0.4, 7 + (i % 3) * 2, 1, `rgba(220,235,245,${0.1 + m.rain * 0.18})`);
+      }
+    }
+
+    this.drawLighthouse();
+
+    // rain, on the far side of the glass
+    if (!this.reduced && m.rain > 0) {
+      c.strokeStyle = `rgba(190,210,230,${0.3 + m.rain * 0.3})`;
+      c.lineWidth = Math.max(1, this.scale * 0.35);
+      c.beginPath();
+      const active = Math.floor(this.drops.length * m.rain);
+      for (let i = 0; i < active; i++) {
+        const d = this.drops[i];
+        c.moveTo(this.sx(x + d.x), this.sy(y + d.y));
+        c.lineTo(this.sx(x + d.x - d.len * 0.4), this.sy(y + d.y + d.len));
+      }
+      c.stroke();
+    }
+    // and beads of it running down the pane
+    if (m.rain > 0.4) {
+      for (let i = 0; i < 7; i++) {
+        const bx = (i * 37 + 11) % w;
+        const by = ((i * 29 + t * (5 + (i % 3) * 3)) % (h + 12)) - 6;
+        this.px(x + bx, y + by, 1, 4 + (i % 3), "rgba(220,235,250,0.28)");
+      }
+    }
+    c.restore();
+
+    this.drawWindowFrame("#6f6250");
+  }
+
+  private drawWindowFrame(color: string): void {
+    const { x, y, w, h } = WIN;
+    this.px(x + w / 2 - 1, y, 2, h, color);
+    this.px(x, y + h / 2 - 1, w, 2, color);
   }
 
   private drawLighthouse(): void {
@@ -242,21 +446,26 @@ export class OfficeScene {
     this.px(bx, 40, 6, 30, "#e8e4dc");
     this.px(bx, 46, 6, 4, "#c63b3b");
     this.px(bx + 1, 34, 4, 6, "#394049");
-    // beam, stronger as it gets darker
-    const beam = 0.1 + this.mood.ambient * 0.5;
-    const sweep = Math.sin(this.t * 0.6);
-    this.ctx.save();
-    this.ctx.globalAlpha = beam;
-    this.ctx.fillStyle = "rgba(255,240,200,1)";
-    this.ctx.beginPath();
-    const ox = this.offX + (bx + 3) * this.scale;
-    const oy = this.offY + 37 * this.scale;
-    this.ctx.moveTo(ox, oy);
-    this.ctx.lineTo(ox + (40 + sweep * 20) * this.scale, oy - 14 * this.scale);
-    this.ctx.lineTo(ox + (40 + sweep * 20) * this.scale, oy + 14 * this.scale);
-    this.ctx.closePath();
-    this.ctx.fill();
-    this.ctx.restore();
+    // the lamp turns: the beam swings one way, then the other, and is
+    // brightest when the weather is worst
+    const dark = this.mood.ambient;
+    const sweep = this.reduced ? 0.4 : Math.sin(this.t * 0.6);
+    const c = this.ctx;
+    c.save();
+    c.globalAlpha = 0.12 + dark * 0.5;
+    c.fillStyle = "rgba(255,240,200,1)";
+    const ox = this.sx(bx + 3);
+    const oy = this.sy(37);
+    const reach = 70 * sweep;
+    c.beginPath();
+    c.moveTo(ox, oy);
+    c.lineTo(ox + reach * this.scale, oy - (6 + Math.abs(reach) * 0.16) * this.scale);
+    c.lineTo(ox + reach * this.scale, oy + (6 + Math.abs(reach) * 0.16) * this.scale);
+    c.closePath();
+    c.fill();
+    c.restore();
+    this.px(bx + 2, 36, 2, 2, "#fff3c4");
+    this.glow(bx + 3, 37, 9, "255,236,180", 0.25 + dark * 0.5);
   }
 
   private drawCorkboard(x: number, y: number): void {
@@ -289,7 +498,7 @@ export class OfficeScene {
     this.px(x + 8, y + 2, 3, 16, "#3f7d44");
   }
 
-  private drawDesk(x: number, y: number, lamp: number, hasMonitorTwo: boolean): void {
+  private drawDesk(x: number, y: number, hasMonitorTwo: boolean): void {
     // desk top
     this.px(x, y, 70, 6, "#7a5a3c");
     this.px(x, y + 6, 70, 18, "#5f4630");
@@ -298,32 +507,52 @@ export class OfficeScene {
     this.px(x + 64, y + 24, 4, 14, "#4a371f");
     // monitor
     this.px(x + 8, y - 20, 26, 18, "#2b2f36");
-    this.px(x + 10, y - 18, 22, 14, lamp > 0.5 ? "#1f6f6a" : "#2f8f88");
     this.px(x + 19, y - 2, 4, 4, "#2b2f36");
     this.px(x + 14, y + 2, 14, 2, "#2b2f36");
-    // scanlines on screen
-    for (let i = 0; i < 6; i++) this.px(x + 11, y - 17 + i * 2, 20, 1, "rgba(255,255,255,0.06)");
-    if (hasMonitorTwo) {
-      this.px(x + 38, y - 16, 20, 14, "#2b2f36");
-      this.px(x + 40, y - 14, 16, 10, "#8a5a2f");
-    }
-    // desk lamp with warm bulb
+    if (hasMonitorTwo) this.px(x + 38, y - 16, 20, 14, "#2b2f36");
+    // desk lamp (its bulb is lit in drawLights)
     this.px(x + 58, y - 14, 2, 14, "#3b3f45");
     this.px(x + 56, y - 16, 6, 3, "#3b3f45");
-    if (lamp > 0) {
-      this.ctx.save();
-      this.ctx.globalAlpha = lamp;
-      this.px(x + 57, y - 13, 4, 3, "#ffd27a");
-      this.ctx.restore();
-    }
     // coffee mug
     this.px(x + 2, y - 4, 5, 4, "#d8d2c6");
+    this.drawScreen(x + 10, y - 18);
+    if (hasMonitorTwo) this.drawAlertScreen(x + 40, y - 14);
+  }
+
+  /** Both desks' screens again, at full brightness, once the room is dark. */
+  private drawScreens(): void {
+    this.drawScreen(36, 78);
+    this.drawScreen(130, 84);
+    this.drawAlertScreen(160, 88);
+  }
+
+  private drawScreen(x: number, y: number): void {
+    this.px(x, y, 22, 14, "#2f8f88");
+    // lines of a log, scrolling slowly
+    const t = this.reduced ? 0 : Math.floor(this.t * 1.5);
+    for (let i = 0; i < 5; i++) this.px(x + 2, y + 2 + i * 2.4, 6 + ((i * 5 + t * 3) % 12), 1, "rgba(215,255,248,0.5)");
+  }
+
+  /** Your second screen: quiet amber normally, blinking when alerts are waiting. */
+  private drawAlertScreen(x: number, y: number): void {
+    const blink = this.alertsWaiting && !this.reduced && Math.floor(this.t * 2) % 2 === 0;
+    this.px(x, y, 16, 10, this.alertsWaiting ? (blink ? "#f0a23c" : "#b8641f") : "#8a5a2f");
+    if (this.alertsWaiting) {
+      this.px(x + 7, y + 2, 2, 4, "#2a1606");
+      this.px(x + 7, y + 7, 2, 1, "#2a1606");
+    } else {
+      for (let i = 0; i < 3; i++) this.px(x + 2, y + 2 + i * 3, 8 + ((i * 3) % 5), 1, "rgba(255,225,180,0.4)");
+    }
   }
 
   private drawServerRack(x: number, y: number): void {
     this.px(x, y, 26, 72, "#23262c");
+    for (let i = 0; i < 9; i++) this.px(x + 2, y + 3 + i * 7, 22, 5, "#2e333b");
+    this.drawRackLeds(x, y);
+  }
+
+  private drawRackLeds(x: number, y: number): void {
     for (let i = 0; i < 9; i++) {
-      this.px(x + 2, y + 3 + i * 7, 22, 5, "#2e333b");
       // blinking status LEDs
       const on = (Math.floor(this.t * 2) + i) % 3 !== 0;
       this.px(x + 20, y + 4 + i * 7, 2, 2, on ? "#59d98a" : "#1d5a38");
@@ -340,37 +569,5 @@ export class OfficeScene {
     this.px(x + 21, y - 1 + breathe, 2, 3, "#3a3a40"); // ear
     this.px(x + 18, y + 2 + breathe, 1, 1, "#9ad1b0"); // eye
     this.px(x - 3, y + 7 + breathe, 5, 3, "#3a3a40"); // tail
-  }
-
-  private drawRain(): void {
-    const c = this.ctx;
-    c.strokeStyle = `rgba(190,210,230,${0.25 + this.mood.rain * 0.3})`;
-    c.lineWidth = Math.max(1, this.scale * 0.4);
-    c.beginPath();
-    const active = Math.floor(this.drops.length * this.mood.rain);
-    for (let i = 0; i < active; i++) {
-      const d = this.drops[i];
-      const sx = this.offX + d.x * this.scale;
-      const sy = this.offY + d.y * this.scale;
-      c.moveTo(sx, sy);
-      c.lineTo(sx - d.len * 0.4 * this.scale, sy + d.len * this.scale);
-    }
-    c.stroke();
-  }
-
-  private lampGlow(x: number, y: number, strength: number): void {
-    const c = this.ctx;
-    const g = c.createRadialGradient(
-      this.offX + x * this.scale,
-      this.offY + y * this.scale,
-      0,
-      this.offX + x * this.scale,
-      this.offY + y * this.scale,
-      46 * this.scale,
-    );
-    g.addColorStop(0, `rgba(255,205,120,${0.28 * strength})`);
-    g.addColorStop(1, "rgba(255,205,120,0)");
-    c.fillStyle = g;
-    c.fillRect(0, 0, this.canvas.width, this.canvas.height);
   }
 }

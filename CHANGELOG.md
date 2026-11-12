@@ -12,6 +12,9 @@ Play online: https://cyberahmedx.github.io/BREAKWATER/
 - **A desktop app.** The game now also builds as a PC game in its own window for Windows, Linux and macOS, with installers attached to each release. F11 or Alt+Enter toggles fullscreen, saving a file opens a native "Save as" dialog, and the main menu has Quit to desktop. The browser version plays the same.
 - **A main menu.** The game opens on a menu: Continue, New game, Replay a chapter, Practice a case, Endings and achievements, Import a save and Settings. Up and down move through it.
 
+- **The office is the desk.** Between cases you are in the room itself. Your screen opens the tickets, the second screen blinks when alerts are waiting and opens the queue, and the corkboard opens Field Notes. Each has a real button over it, so it works with a keyboard and a screen reader, and on a narrow screen the buttons line up along the bottom instead.
+- **Storm lighting.** Rain now falls outside the window, with beads running down the glass, cloud banks, and a sea that heaves as the weather turns. Screens, lamps and the server rack's lights glow through the dark. Lightning shows as a bolt in the sky, lights the room through the window and throws the frame's shadow across the floor. In chapter five the lamps gutter and a red emergency beacon turns on the wall. Reduced motion keeps all of it still.
+
 ### Changed
 - You are asked for your name after choosing New game, on the job application, instead of on the first screen.
 

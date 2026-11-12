@@ -21,7 +21,7 @@ import {
 import { resolveEnding, ENDING_ORDER } from "../engine/endings";
 import { type MetaData, loadMeta, saveMeta, recordEnding, recordCodex, recordCases, recordSecrets, recordCheckpoint } from "../engine/meta";
 import { checkAchievements } from "../engine/achievements";
-import { OfficeScene } from "../scene/office";
+import { OfficeScene, type OfficeObject } from "../scene/office";
 import { drawPortrait } from "../scene/portraits";
 import { audio } from "../audio/audio";
 import { SCREENINGS } from "../content/screenings";
@@ -227,21 +227,39 @@ export class App implements Host {
     const sideTickets = plan.side.map(ticketById).filter(isVisible(this.s)) as Ticket[];
     const allMainDone = mainTickets.every((t) => isDone(this.s, t.id));
 
-    const head = el("div", { class: "desk-head" }, [
-      el("div", { class: "chapter-badge", text: `${plan.title}` }),
-      el("h2", { class: "chapter-title", text: plan.subtitle }),
-      el("p", { class: "desk-note", text: allMainDone ? "Caught up. When you are ready, carry on." : "Open tickets are waiting. Work them when you are ready." }),
-    ]);
-
-    const queue = el("div", { class: "queue" });
-    for (const t of [...mainTickets, ...sideTickets]) {
-      queue.append(this.ticketCard(t, isDone(this.s, t.id)));
-    }
+    const openTickets = [...mainTickets, ...sideTickets].filter((t) => !isDone(this.s, t.id)).length;
 
     // The alert queue: more comes in than there is time for. From chapter two.
     const alerts = queueFor(this.s.chapter, this.s.seed);
     const alertsOpen = queueOpen(this.s, alerts);
-    const alertPanel = alerts.length ? this.alertPanel(alerts, alertsOpen) : el("span");
+    this.scene.setAlertsWaiting(alertsOpen);
+
+    const head = el("div", { class: "desk-head hub-head" }, [
+      el("div", { class: "chapter-badge", text: `${plan.title}` }),
+      el("h2", { class: "chapter-title", text: plan.subtitle }),
+      el("p", { class: "desk-note", text: allMainDone ? "Caught up. When you are ready, carry on." : "Tickets are waiting on your screen. Work them when you are ready." }),
+    ]);
+    if (alerts.length) head.append(el("p", { class: "alert-panel-note", text: this.alertNote(alerts, alertsOpen) }));
+
+    // The office is the desk: the things in it are the way in to the work.
+    const spots: [OfficeObject, HTMLElement][] = [];
+    const spot = (at: OfficeObject, cls: string, name: string, sub: string, lively: boolean, run: () => void): void => {
+      const b = el("button", { class: `hot ${cls}${lively ? " lively" : ""}`, type: "button" }, [
+        el("span", { class: "hot-tag" }, [el("span", { class: "hot-name", text: name }), el("span", { class: "hot-sub", text: sub })]),
+      ]);
+      b.addEventListener("click", () => {
+        audio.click();
+        run();
+      });
+      spots.push([at, b]);
+    };
+    spot("tickets", "hot-tickets", "Tickets", openTickets ? `${openTickets} open` : "all closed", openTickets > 0, () => this.screenTickets());
+    if (alerts.length) {
+      const st = triageStats(this.s, alerts);
+      const sub = alertsOpen ? `${waiting(this.s, alerts).length} waiting` : st.calls > 0 ? "worked" : "quiet";
+      spot("alerts", alertsOpen ? "hot-alerts alert-queue-open" : "hot-alerts alert-queue-review", "Alerts", sub, alertsOpen, () => screenTriage(this));
+    }
+    spot("board", "hot-board", "Field notes", "what you have learned", false, () => openCodex(this));
 
     const footer = el("div", { class: "desk-footer" });
     if (allMainDone) {
@@ -265,31 +283,75 @@ export class App implements Host {
       footer.append(el("p", { class: "muted", text: `Close the remaining case${mainTickets.filter((t) => !isDone(this.s, t.id)).length > 1 ? "s" : ""} to continue.` }));
     }
 
-    this.stage.className = "stage";
-    mount(this.stage, head, queue, alertPanel, footer);
+    const dock = el("div", { class: "hub-dock" }, spots.map(([, b]) => b));
+    const hub = el("div", { class: "office-hub" }, [head, el("div", { class: "hub-bottom" }, [dock, footer])]);
+
+    // Each button sits over its object in the scene. Where the window is too
+    // narrow to show the object, or the heading covers it, the button drops
+    // into a row at the bottom, so nothing is ever out of reach.
+    const place = (): void => {
+      if (!hub.isConnected) {
+        removeEventListener("resize", place);
+        return;
+      }
+      const top = head.getBoundingClientRect();
+      for (const [at, b] of spots) {
+        const r = this.scene.rectOf(at);
+        const cx = r.left + r.width / 2;
+        const onScreen = innerWidth >= 760 && cx > 70 && cx < innerWidth - 70 && r.top > 58 && r.top + r.height < innerHeight - 120;
+        const underHead = r.top - 46 < top.bottom && cx > top.left - 60 && cx < top.right + 60;
+        const placed = onScreen && !underHead;
+        b.classList.toggle("placed", placed);
+        b.style.left = placed ? `${r.left - 4}px` : "";
+        b.style.top = placed ? `${r.top - 4}px` : "";
+        b.style.width = placed ? `${r.width + 8}px` : "";
+        b.style.height = placed ? `${r.height + 8}px` : "";
+      }
+    };
+    addEventListener("resize", place);
+    // the rest of the room answers a click with a line about itself
+    hub.addEventListener("mousemove", (e) => {
+      hub.style.cursor = e.target === hub && this.scene.inspect(e.clientX, e.clientY) ? "help" : "";
+    });
+
+    this.stage.className = "stage office";
+    mount(this.stage, hub);
+    place();
   }
 
-  /** The alert queue's card on the desk: what is waiting, and a way in. */
-  private alertPanel(alerts: ReturnType<typeof queueFor>, open: boolean): HTMLElement {
+  /** The tickets on your screen: the chapter's cases, and the side case. */
+  screenTickets(): void {
+    const plan = chapterPlan(this.s.chapter);
+    if (!plan) return;
+    const tickets = [...plan.main, ...plan.side].map(ticketById).filter(isVisible(this.s)) as Ticket[];
+    const head = el("div", { class: "desk-head" }, [
+      el("div", { class: "chapter-badge", text: `${plan.title}: ${plan.subtitle}` }),
+      el("h2", { class: "chapter-title", text: "Your tickets" }),
+      el("p", { class: "desk-note", text: tickets.some((t) => !isDone(this.s, t.id)) ? "Pick one up. The side case is optional, and worth doing." : "Everything here is closed." }),
+    ]);
+    const queue = el("div", { class: "queue" });
+    for (const t of tickets) queue.append(this.ticketCard(t, isDone(this.s, t.id)));
+    const back = el("button", { class: "btn ghost", type: "button", text: "Back to the office" });
+    back.addEventListener("click", () => {
+      audio.click();
+      this.screenChapter();
+    });
+    this.stage.className = "stage";
+    mount(this.stage, head, queue, el("div", { class: "desk-footer" }, [back]));
+  }
+
+  /** What the alert queue has waiting, in a line. */
+  private alertNote(alerts: ReturnType<typeof queueFor>, open: boolean): string {
     const left = looksLeft(this.s, alerts);
     const unopened = waiting(this.s, alerts).length;
     const st = triageStats(this.s, alerts);
-    const note = open
+    return open
       ? unopened > 0 && left > 0
         ? `${unopened} alert${unopened === 1 ? "" : "s"} waiting, and time to open ${left}. The rest age out when you continue.`
         : "An alert is open and waiting for your call."
       : st.calls > 0
-        ? `Worked. ${st.rightCalls} of ${st.calls} call${st.calls === 1 ? "" : "s"} right.`
-        : "Nothing left to work.";
-    const go = el("button", { class: open ? "btn primary small alert-queue-open" : "btn ghost small alert-queue-review", type: "button", text: open ? "Work the queue" : "Look back at the queue" });
-    go.addEventListener("click", () => {
-      audio.click();
-      screenTriage(this);
-    });
-    return el("div", { class: open ? "alert-panel" : "alert-panel worked" }, [
-      el("div", {}, [el("div", { class: "alert-panel-k", text: "Alert queue" }), el("p", { class: "alert-panel-note", text: note })]),
-      go,
-    ]);
+        ? `Alert queue worked. ${st.rightCalls} of ${st.calls} call${st.calls === 1 ? "" : "s"} right.`
+        : "Nothing left in the alert queue.";
   }
 
   private ticketCard(t: Ticket, done: boolean): HTMLElement {
