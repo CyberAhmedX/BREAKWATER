@@ -98,6 +98,17 @@ npm run check    # lint + typecheck + tests
 npm run e2e      # plays the built game in Chromium: every ending, every track
 ```
 
+### The desktop app
+
+The same build also runs as a PC game, in its own window, through [Tauri](https://tauri.app). You need [Rust](https://rustup.rs) installed, and on Linux the WebKitGTK development libraries.
+
+```bash
+npm run desktop:dev     # the game in a native window, with live reload
+npm run desktop:build   # an installer in src-tauri/target/release/bundle/
+```
+
+F11 or Alt+Enter toggles fullscreen, downloads open a native "Save as" dialog, and the title screen has a way to quit. Tagging a release builds a Windows installer and Linux packages and attaches them to it. The installers are not code signed, so Windows asks before running one for the first time.
+
 The production build is one self-contained `dist/index.html` of about 750 KB, fonts included. It makes no network requests, so it works offline and can be hosted anywhere.
 
 ## Project layout
@@ -113,6 +124,7 @@ src/
              and the generators for cases that change between runs
 tests/       content house-rules and engine logic
 e2e/         a bot that plays the real game in a browser
+src-tauri/   the desktop shell: window, icons, save dialog, fullscreen, quit
 media/       screenshots and the demo clip
 ```
 

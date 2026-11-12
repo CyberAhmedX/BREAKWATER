@@ -8,6 +8,7 @@ import { el, mount } from "./dom";
 import { renderEvidence } from "./evidence";
 import type { QuestionControl } from "./controls";
 import { type Host, attackTags, hintFlag } from "./host";
+import { saveFile } from "./platform";
 import { type QuestionContext, buildQuestion } from "./questions";
 
 // The case workstation: evidence on one side, your analysis on the other, and
@@ -265,12 +266,7 @@ export function takeawayRow(t: Ticket): HTMLElement {
       const b = el("button", { class: "btn ghost small", type: "button", text: f.label });
       b.addEventListener("click", () => {
         audio.click();
-        const url = URL.createObjectURL(new Blob([f.text], { type: "text/plain" }));
-        const a = el("a", { href: url, download: f.file });
-        document.body.append(a);
-        a.click();
-        a.remove();
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        void saveFile(f.file, new Blob([f.text], { type: "text/plain" }));
       });
       return b;
     }),

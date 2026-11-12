@@ -6,6 +6,11 @@ All notable changes to Breakwater, newest first. This file follows
 
 Play online: https://cyberahmedx.github.io/BREAKWATER/
 
+## [Unreleased]
+
+### Added
+- **A desktop app.** The game now also builds as a PC game in its own window, with a Windows installer and Linux packages attached to each release. F11 or Alt+Enter toggles fullscreen, saving a file opens a native "Save as" dialog, and the title screen has Quit to desktop. The browser version is unchanged.
+
 ## [3.1.0] - 2026-11-10
 
 ### Added

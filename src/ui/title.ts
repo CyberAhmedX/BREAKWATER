@@ -7,6 +7,7 @@ import { charName } from "../content/characters";
 import { screeningFor } from "../content/screenings";
 import { el, mount } from "./dom";
 import type { Host } from "./host";
+import { isDesktop, quitGame } from "./platform";
 import { openChapterSelect, openImport, openPractice, openRecord } from "./overlays";
 
 // The title screen and the choice of team to screen for.
@@ -115,6 +116,12 @@ export function screenTitle(host: Host): void {
     openImport(host);
   });
   extras.append(imp);
+  // a window has no tab to close, so the desktop app gets a way out
+  if (isDesktop()) {
+    const quit = el("button", { class: "btn ghost small", type: "button", text: "Quit to desktop" });
+    quit.addEventListener("click", quitGame);
+    extras.append(quit);
+  }
   card.append(extras);
 
   host.stage.className = "stage center";
