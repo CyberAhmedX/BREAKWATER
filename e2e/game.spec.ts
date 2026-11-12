@@ -262,6 +262,7 @@ test("the chapter five finale runs live and hands out take-home files", async ({
   });
   await page.reload();
   await page.getByRole("button", { name: /^Continue as/ }).click();
+  await page.locator(".hot-tickets").click();
   await page.locator(".ticket-card", { hasText: "Something is in the plant network" }).click();
   while (await page.locator(".vn[role=button]").count()) await page.locator(".vn[role=button]").click();
   await expect(page.locator(".live-clock")).toBeVisible();
@@ -284,6 +285,7 @@ test("hard mode never offers a hint, and practice leaves the run alone", async (
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto(GAME);
+  await page.getByRole("button", { name: "New game" }).click();
   await page.fill("#player-name", "Kit");
   await page.check("#hard-mode");
   await page.getByRole("button", { name: "Apply to Lanternhouse" }).click();

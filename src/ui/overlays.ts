@@ -13,6 +13,7 @@ import { SECRETS } from "../content/secrets";
 import { el, mount } from "./dom";
 import { drawShareCard, shareFileName } from "./sharecard";
 import { type Host, stat } from "./host";
+import { isDesktop, saveFile, saveStatus, toggleFullscreen } from "./platform";
 import { TICKETS } from "../content/tickets";
 import { QUEUE } from "../content/queue";
 import { skillsFileName, skillsHtml, skillsSummary } from "../engine/skills";
@@ -40,13 +41,7 @@ export async function openShareCard(host: Host, ending: ReturnType<typeof resolv
     audio.click();
     canvas.toBlob((blob) => {
       if (!blob) return;
-      const url = URL.createObjectURL(blob);
-      const a = el("a", { href: url, download: shareFileName(ending, host.s.playerName) });
-      document.body.append(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-      status.textContent = "Saved to your downloads.";
+      void saveFile(shareFileName(ending, host.s.playerName), blob).then((r) => (status.textContent = saveStatus(r)));
     }, "image/png");
   });
   overlay(host, "Share your ending", [img, el("div", { class: "btn-row" }, [download]), status]);
@@ -111,6 +106,15 @@ export function openCodex(host: Host): void {
     if (e.target === overlay) close();
   });
   host.root.append(overlay);
+}
+
+function fullscreenRow(): HTMLElement {
+  const b = el("button", { class: "btn ghost", type: "button", text: "Toggle fullscreen" });
+  b.addEventListener("click", () => {
+    audio.click();
+    toggleFullscreen();
+  });
+  return el("div", { class: "set-row" }, [el("span", { class: "set-label", text: "Display (F11 or Alt+Enter)" }), b]);
 }
 
 export function openSettings(host: Host): void {
@@ -236,6 +240,7 @@ export function openSettings(host: Host): void {
       changed();
     }),
     el("div", { class: "set-row" }, [muteBtn]),
+    ...(isDesktop() ? [fullscreenRow()] : []),
     choices(
       "Text size",
       TEXT_SCALES.map((v, i) => ({ text: ["Small", "Normal", "Large", "Larger"][i], value: v as number })),
@@ -296,12 +301,12 @@ export function openSettings(host: Host): void {
     ),
     el("div", { class: "set-row" }, [el("div", { class: "btn-row" }, host.s.hired ? [record, skills] : [record])]),
     el("div", { class: "set-row" }, [
-      el("span", { class: "set-label", text: "Your save lives in this browser. Export it as a backup, or to carry on somewhere else." }),
+      el("span", { class: "set-label", text: `Your save lives ${isDesktop() ? "on this computer" : "in this browser"}. Export it as a backup, or to carry on somewhere else.` }),
       el("div", { class: "btn-row" }, [exportBtn, importBtn]),
     ]),
     el("div", { class: "set-about" }, [
       el("p", { text: "Breakwater is a work of fiction. Every company, person, address and domain is invented. It teaches real cybersecurity ideas through an imagined investigation." }),
-      el("p", { class: "muted", text: "All music and sound is generated in your browser. Nothing is sampled or copied." }),
+      el("p", { class: "muted", text: `All music and sound is generated ${isDesktop() ? "live as you play" : "in your browser"}. Nothing is sampled or copied.` }),
     ]),
     el("div", { class: "set-row danger-row" }, [reset, resetAll]),
   ]);
@@ -399,13 +404,8 @@ export function openExport(host: Host): void {
   const download = el("button", { class: "btn primary", type: "button", text: "Download save file" });
   download.addEventListener("click", () => {
     audio.click();
-    const url = URL.createObjectURL(new Blob([bundleToFile(bundle)], { type: "application/json" }));
-    const a = el("a", { href: url, download: fileName(host.s) });
-    document.body.append(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-    status.textContent = "Saved to your downloads. Load it later with Import save.";
+    const file = new Blob([bundleToFile(bundle)], { type: "application/json" });
+    void saveFile(fileName(host.s), file).then((r) => (status.textContent = saveStatus(r, "Load it later with Import save.")));
   });
 
   const code = el("textarea", { class: "save-code", readonly: true, rows: 4, "aria-label": "Your save code", spellcheck: "false" }) as HTMLTextAreaElement;
@@ -512,7 +512,7 @@ export function openImport(host: Host): void {
       ]),
       when ? el("p", { class: "muted", text: `Exported on ${when}.` }) : el("span"),
       replacing
-        ? el("p", { class: "warn", text: "Loading replaces the run, endings, achievements and settings in this browser. Export yours first if you want to keep them." })
+        ? el("p", { class: "warn", text: `Loading replaces the run, endings, achievements and settings ${isDesktop() ? "on this computer" : "in this browser"}. Export yours first if you want to keep them.` })
         : el("span"),
       el("div", { class: "btn-row" }, [confirm, back]),
     );
@@ -591,13 +591,8 @@ export function openSkills(host: Host): void {
   download.addEventListener("click", () => {
     audio.click();
     const date = new Date().toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" });
-    const url = URL.createObjectURL(new Blob([skillsHtml(sum, date)], { type: "text/html" }));
-    const a = el("a", { href: url, download: skillsFileName(sum.player) });
-    document.body.append(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-    status.textContent = "Saved to your downloads. It is one file, and opens in any browser.";
+    const page = new Blob([skillsHtml(sum, date)], { type: "text/html" });
+    void saveFile(skillsFileName(sum.player), page).then((r) => (status.textContent = saveStatus(r, "It is one file, and opens in any browser.")));
   });
 
   const body: HTMLElement[] = [

@@ -8,3 +8,7 @@ coverage/
 *.keystore
 test-results/
 playwright-report/
+
+# desktop app build output
+src-tauri/target/
+src-tauri/gen/

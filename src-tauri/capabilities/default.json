@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "The game window. It only needs the core defaults; file dialogs are opened from the Rust side.",
+  "windows": ["main"],
+  "permissions": ["core:default"]
+}

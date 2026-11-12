@@ -72,10 +72,14 @@ export async function play(page: Page, plan: Plan): Promise<string | null> {
       await chooseInScene(page, plan);
       continue;
     }
-    if (await page.locator(".title-card").count()) {
+    if (await page.locator(".main-menu").count()) {
       const cont = page.getByRole("button", { name: /^Continue as / });
       if (await cont.count()) await cont.click();
-      else {
+      else await page.getByRole("button", { name: "New game" }).click();
+      continue;
+    }
+    if (await page.locator(".title-card").count()) {
+      {
         await page.fill("#player-name", plan.name);
         await page.getByRole("button", { name: "Apply to Lanternhouse" }).click();
       }
@@ -97,13 +101,19 @@ export async function play(page: Page, plan: Plan): Promise<string | null> {
       await workQueue(page, plan);
       continue;
     }
-    if (await page.locator(".queue").count()) {
+    // the office: work the alerts, then the tickets on the screen, then end the day
+    if (await page.locator(".office-hub").count()) {
       const alerts = page.locator(".alert-queue-open");
-      const open = page.locator(".ticket-card:not(.done)");
       if ((plan.triage ?? "catch") !== "ignore" && (await alerts.count())) await alerts.click();
-      else if (await open.count()) await open.first().click();
+      else if (await page.locator(".hot-tickets.lively").count()) await page.locator(".hot-tickets").click();
       // leaving alerts unworked asks once before it lets the day end
       else await page.locator(".desk-footer .btn.primary").click();
+      continue;
+    }
+    if (await page.locator(".queue").count()) {
+      const open = page.locator(".ticket-card:not(.done)");
+      if (await open.count()) await open.first().click();
+      else await page.getByRole("button", { name: "Back to the office" }).click();
       continue;
     }
     await page.waitForTimeout(50);

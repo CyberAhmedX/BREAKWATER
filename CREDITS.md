@@ -31,6 +31,9 @@ They are delivered via the `@fontsource` packages and inlined into the build.
 Build and test tooling only (Vite, Vitest, Playwright, ESLint, TypeScript). None of it ships
 in the final game; the production build is a single self-contained HTML file.
 
+The desktop app wraps that same file in a native window with [Tauri](https://tauri.app)
+(MIT or Apache-2.0), which draws it with the system's own web view.
+
 ## License
 
 The code, writing and art are all rights reserved (see `LICENSE`). The fonts

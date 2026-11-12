@@ -3,7 +3,9 @@
 <p align="center">A cozy-to-dark cybersecurity career game. Screen for a team, investigate, and learn the trade one real case at a time.</p>
 
 <p align="center">
-  <a href="https://cyberahmedx.github.io/BREAKWATER/"><b>Play in your browser</b></a>
+  <a href="https://github.com/CyberAhmedX/BREAKWATER/releases/latest"><b>Download for Windows, macOS and Linux</b></a>
+  &nbsp;&middot;&nbsp;
+  <a href="https://cyberahmedx.github.io/BREAKWATER/"><b>Play the demo in your browser</b></a>
   &nbsp;&middot;&nbsp;
   <a href="#screenshots">Screenshots</a>
   &nbsp;&middot;&nbsp;
@@ -23,6 +25,11 @@
 You are the newest hire at Lanternhouse Security, a small firm keeping a rainy harbor town safe. You screen for a team, close tickets, climb from Probationary Analyst to Lead, and slowly uncover what has been hiding in the quiet. Your choices lead to one of five endings.
 
 It is built for students and people getting ready for a first SOC or help desk job: the cases are real scenarios, explained as you meet them. If you already do this for a living, Hard mode turns off the hints, gives you one attempt per case, and tightens the clock in the live finale.
+
+## Get the game
+
+- **The full game** is a free download for Windows, macOS and Linux, from the [latest release](https://github.com/CyberAhmedX/BREAKWATER/releases/latest).
+- **The demo** runs [in your browser](https://cyberahmedx.github.io/BREAKWATER/) with nothing to install: the screening and the first two chapters. Export your save at the end and import it into the full game to carry on where you stopped.
 
 ## Screenshots
 
@@ -46,7 +53,7 @@ It is built for students and people getting ready for a first SOC or help desk j
 | ![The alert queue in chapter two](media/alert-queue.png) | ![The skills summary](media/skills-summary.png) |
 | **Five alerts, time for three, and the loud ones are mostly noise** | **The tools you used, the techniques you met, and how the run went** |
 
-The office darkens with the story: cozy and sunlit at first, then rain, then a storm blackout lit by emergency red. Lighting, weather, and the soundtrack all shift per chapter.
+The office is where you work between cases, and the things in it are the way in: your screen opens the tickets, the second screen blinks when alerts are waiting, and the corkboard holds your Field Notes. It darkens with the story: cozy and sunlit at first, then rain on the glass, then a storm blackout where the lamps gutter, a red beacon turns on the wall and lightning throws the window across the floor. Lighting, weather, and the soundtrack all shift per chapter.
 
 ## What makes it tick
 
@@ -75,7 +82,8 @@ The office darkens with the story: cozy and sunlit at first, then rain, then a s
 - **Hints that cost XP** when you are stuck, so guessing is never cheaper than reading.
 - **MITRE ATT&CK tags** on each solved case, naming the real technique it covered (for example T1566 Phishing).
 - **XP and ranks**: climb from Probationary Analyst to Lead Analyst as you close cases.
-- **Original procedural music and sound**, synthesized live in the browser. Nothing is sampled or copied.
+- **A desktop to work on**: a case opens on LanternOS, with each piece of evidence in its own window, a taskbar, and minimize and maximize for when a tool wants the whole screen.
+- **Original procedural music and sound**, synthesized live in the browser: the soundtrack, the rain, the hum of the server rack, a keyboard across the room, a foghorn in the harbor. Nothing is sampled or copied.
 - **Five endings** driven by your choices about integrity, trust, and the truth. What you did in chapters three and four decides which of them are still open at the end, and a closed one tells you which choice closed it. An endings gallery tracks the ones you have found, and after your first ending you can replay any chapter from where your last run stood. Download a share card of how your run ended.
 - **A skills summary to keep**: one page listing the tools you actually used and on which cases, the ATT&CK techniques those cases covered, and how the run went. It is a record of a game, not a certificate, and it says so.
 - **Hard mode and practice mode**: Hard mode is no hints, one attempt per case, and a tighter finale clock, for players who already know the trade. Practice mode replays any case you have closed without touching your run.
@@ -93,10 +101,31 @@ Every company, person, address, and domain is invented. All IP addresses come fr
 ```bash
 npm install
 npm run dev      # local dev server
-npm run build    # single self-contained HTML file in dist/
+npm run build    # the full game as one self-contained HTML file in dist/
 npm run check    # lint + typecheck + tests
 npm run e2e      # plays the built game in Chromium: every ending, every track
 ```
+
+### The desktop app
+
+The same build also runs as a PC game, in its own window, through [Tauri](https://tauri.app). It runs on Windows, Linux and macOS. To build it you need [Rust](https://rustup.rs) installed, and on Linux the WebKitGTK development libraries.
+
+```bash
+npm run desktop:dev     # the game in a native window, with live reload
+npm run desktop:build   # an installer in src-tauri/target/release/bundle/
+```
+
+F11 or Alt+Enter toggles fullscreen, downloads open a native "Save as" dialog, and the main menu has a way to quit. Tagging a release builds and attaches:
+
+| System | File |
+| :-- | :-- |
+| Windows 10 and 11 | `.exe` installer |
+| Linux | `.deb`, `.rpm` and a portable `.AppImage` |
+| macOS 10.15 and later, Apple silicon and Intel | `.dmg` |
+
+The installers are not code signed. Windows asks before running one for the first time, and on macOS you right-click the app and choose Open the first time (or allow it under System Settings, Privacy & Security).
+
+The website is built with `VITE_DEMO=1 npm run build`, which stops after chapter two and points to the download. Every other build, the desktop app included, is the full game.
 
 The production build is one self-contained `dist/index.html` of about 750 KB, fonts included. It makes no network requests, so it works offline and can be hosted anywhere.
 
@@ -113,12 +142,13 @@ src/
              and the generators for cases that change between runs
 tests/       content house-rules and engine logic
 e2e/         a bot that plays the real game in a browser
+src-tauri/   the desktop shell: window, icons, save dialog, fullscreen, quit
 media/       screenshots and the demo clip
 ```
 
 ## Tech
 
-TypeScript, Vite, Vitest, Playwright, ESLint. No game engine and no runtime framework. CI runs lint, typecheck and tests on every push, then plays the built game in a real browser to every ending; a successful build auto-deploys to GitHub Pages.
+TypeScript, Vite, Vitest, Playwright, ESLint. No game engine and no runtime framework. CI runs lint, typecheck and tests on every push, then plays the built game in a real browser to every ending; a push to main deploys the demo to GitHub Pages, and a version tag builds the installers.
 
 See `CREDITS.md` for asset provenance and `PRIVACY.md` for the privacy note.
 

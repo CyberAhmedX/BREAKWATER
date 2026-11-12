@@ -483,6 +483,7 @@ export function spotQuestion(q: Extract<Question, { type: "spot" }>, wrap: HTMLE
     }
     ctx.disarm?.();
     ctx.disarm = disarm;
+    view.classList.remove("min"); // a minimized window has nothing to point at
     view.classList.add("picking");
     view.prepend(banner);
     targets().forEach((x) => {

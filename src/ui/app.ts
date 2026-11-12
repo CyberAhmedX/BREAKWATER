@@ -21,7 +21,8 @@ import {
 import { resolveEnding, ENDING_ORDER } from "../engine/endings";
 import { type MetaData, loadMeta, saveMeta, recordEnding, recordCodex, recordCases, recordSecrets, recordCheckpoint } from "../engine/meta";
 import { checkAchievements } from "../engine/achievements";
-import { OfficeScene } from "../scene/office";
+import { FULL_GAME_URL, demoOver } from "../engine/demo";
+import { OfficeScene, type OfficeObject } from "../scene/office";
 import { drawPortrait } from "../scene/portraits";
 import { audio } from "../audio/audio";
 import { SCREENINGS } from "../content/screenings";
@@ -34,12 +35,13 @@ import { QUEUE, queueAftermath, queueFor } from "../content/queue";
 import { ageOut, looksLeft, queueOpen, triageStats, waiting } from "../engine/triage";
 import { screenTriage } from "./triage";
 import { el, mount } from "./dom";
+import { chapterCard, stampCase } from "./effects";
 import { type CloseGradeInfo, type Host, isVisible, speakerFor, stat } from "./host";
 import { screenTitle, screenTrack } from "./title";
 import { screenScreening } from "./screening";
 import { ticketWorkstation } from "./workstation";
 import { playDialogue, playScene } from "./dialogue";
-import { openCodex, openPractice, openRecord, openSettings, openShareCard, openSkills } from "./overlays";
+import { openCodex, openExport, openPractice, openRecord, openSettings, openShareCard, openSkills } from "./overlays";
 
 // The app controller: it owns the run and the record, routes between screens,
 // and runs the chapter desk, case completion and the ending. The screens
@@ -177,6 +179,7 @@ export class App implements Host {
   render(): void {
     this.renderTopbar();
     this.scene.setChapter(this.s.chapter);
+    this.castOffice();
     if (!this.started) {
       screenTitle(this);
       return;
@@ -199,6 +202,10 @@ export class App implements Host {
 
   // ----------------------------------------------------------------- chapter desk
   screenChapter(): void {
+    if (demoOver(this.s.chapter)) {
+      this.screenDemoEnd();
+      return;
+    }
     const plan = chapterPlan(this.s.chapter);
     if (!plan) {
       // past the last chapter: go to ending
@@ -213,6 +220,7 @@ export class App implements Host {
       recordCheckpoint(this.meta, this.s);
       saveMeta(this.meta);
       const sc = sceneById(plan.intro);
+      chapterCard(this.root, plan.title, plan.subtitle);
       if (sc) {
         playScene(this, sc, () => {
           markDone(this.s, `intro_${plan.chapter}`);
@@ -227,21 +235,39 @@ export class App implements Host {
     const sideTickets = plan.side.map(ticketById).filter(isVisible(this.s)) as Ticket[];
     const allMainDone = mainTickets.every((t) => isDone(this.s, t.id));
 
-    const head = el("div", { class: "desk-head" }, [
-      el("div", { class: "chapter-badge", text: `${plan.title}` }),
-      el("h2", { class: "chapter-title", text: plan.subtitle }),
-      el("p", { class: "desk-note", text: allMainDone ? "Caught up. When you are ready, carry on." : "Open tickets are waiting. Work them when you are ready." }),
-    ]);
-
-    const queue = el("div", { class: "queue" });
-    for (const t of [...mainTickets, ...sideTickets]) {
-      queue.append(this.ticketCard(t, isDone(this.s, t.id)));
-    }
+    const openTickets = [...mainTickets, ...sideTickets].filter((t) => !isDone(this.s, t.id)).length;
 
     // The alert queue: more comes in than there is time for. From chapter two.
     const alerts = queueFor(this.s.chapter, this.s.seed);
     const alertsOpen = queueOpen(this.s, alerts);
-    const alertPanel = alerts.length ? this.alertPanel(alerts, alertsOpen) : el("span");
+    this.scene.setAlertsWaiting(alertsOpen);
+
+    const head = el("div", { class: "desk-head hub-head" }, [
+      el("div", { class: "chapter-badge", text: `${plan.title}` }),
+      el("h2", { class: "chapter-title", text: plan.subtitle }),
+      el("p", { class: "desk-note", text: allMainDone ? "Caught up. When you are ready, carry on." : "Tickets are waiting on your screen. Work them when you are ready." }),
+    ]);
+    if (alerts.length) head.append(el("p", { class: "alert-panel-note", text: this.alertNote(alerts, alertsOpen) }));
+
+    // The office is the desk: the things in it are the way in to the work.
+    const spots: [OfficeObject, HTMLElement][] = [];
+    const spot = (at: OfficeObject, cls: string, name: string, sub: string, lively: boolean, run: () => void): void => {
+      const b = el("button", { class: `hot ${cls}${lively ? " lively" : ""}`, type: "button" }, [
+        el("span", { class: "hot-tag" }, [el("span", { class: "hot-name", text: name }), el("span", { class: "hot-sub", text: sub })]),
+      ]);
+      b.addEventListener("click", () => {
+        audio.click();
+        run();
+      });
+      spots.push([at, b]);
+    };
+    spot("tickets", "hot-tickets", "Tickets", openTickets ? `${openTickets} open` : "all closed", openTickets > 0, () => this.screenTickets());
+    if (alerts.length) {
+      const st = triageStats(this.s, alerts);
+      const sub = alertsOpen ? `${waiting(this.s, alerts).length} waiting` : st.calls > 0 ? "worked" : "quiet";
+      spot("alerts", alertsOpen ? "hot-alerts alert-queue-open" : "hot-alerts alert-queue-review", "Alerts", sub, alertsOpen, () => screenTriage(this));
+    }
+    spot("board", "hot-board", "Field notes", "what you have learned", false, () => openCodex(this));
 
     const footer = el("div", { class: "desk-footer" });
     if (allMainDone) {
@@ -265,31 +291,112 @@ export class App implements Host {
       footer.append(el("p", { class: "muted", text: `Close the remaining case${mainTickets.filter((t) => !isDone(this.s, t.id)).length > 1 ? "s" : ""} to continue.` }));
     }
 
-    this.stage.className = "stage";
-    mount(this.stage, head, queue, alertPanel, footer);
+    const dock = el("div", { class: "hub-dock" }, spots.map(([, b]) => b));
+    const hub = el("div", { class: "office-hub" }, [head, el("div", { class: "hub-bottom" }, [dock, footer])]);
+
+    // Each button sits over its object in the scene. Where the window is too
+    // narrow to show the object, or the heading covers it, the button drops
+    // into a row at the bottom, so nothing is ever out of reach.
+    const place = (): void => {
+      if (!hub.isConnected) {
+        removeEventListener("resize", place);
+        return;
+      }
+      const top = head.getBoundingClientRect();
+      for (const [at, b] of spots) {
+        const r = this.scene.rectOf(at);
+        const cx = r.left + r.width / 2;
+        const onScreen = innerWidth >= 760 && cx > 70 && cx < innerWidth - 70 && r.top > 58 && r.top + r.height < innerHeight - 120;
+        const underHead = r.top - 46 < top.bottom && cx > top.left - 60 && cx < top.right + 60;
+        const placed = onScreen && !underHead;
+        b.classList.toggle("placed", placed);
+        b.style.left = placed ? `${r.left - 4}px` : "";
+        b.style.top = placed ? `${r.top - 4}px` : "";
+        b.style.width = placed ? `${r.width + 8}px` : "";
+        b.style.height = placed ? `${r.height + 8}px` : "";
+      }
+    };
+    addEventListener("resize", place);
+    // the rest of the room answers a click with a line about itself
+    hub.addEventListener("mousemove", (e) => {
+      hub.style.cursor = e.target === hub && this.scene.inspect(e.clientX, e.clientY) ? "help" : "";
+    });
+
+    this.stage.className = "stage office";
+    mount(this.stage, hub);
+    place();
   }
 
-  /** The alert queue's card on the desk: what is waiting, and a way in. */
-  private alertPanel(alerts: ReturnType<typeof queueFor>, open: boolean): HTMLElement {
+  /** The end of the browser demo: where to get the full game, and how to bring this run along. */
+  private screenDemoEnd(): void {
+    const get = el("a", { class: "btn primary", href: FULL_GAME_URL, target: "_blank", rel: "noopener", text: "Download the full game" });
+    const exp = el("button", { class: "btn ghost", type: "button", text: "Export my save" });
+    exp.addEventListener("click", () => {
+      audio.click();
+      openExport(this);
+    });
+    const menu = el("button", { class: "btn ghost", type: "button", text: "Back to the menu" });
+    menu.addEventListener("click", () => {
+      audio.click();
+      this.started = false;
+      this.render();
+    });
+    const card = el("div", { class: "title-card demo-end" }, [
+      el("p", { class: "title-sub", text: "End of the demo" }),
+      el("h2", { class: "chapter-title", text: "The weather is turning" }),
+      el("p", { class: "title-blurb", text: `That is the first two chapters, ${this.s.playerName}. Three more are waiting, with the rest of your team's cases, the live finale and all five endings.` }),
+      el("p", { class: "title-blurb", text: "The full game is free, for Windows, macOS and Linux. Your run comes with you: export your save here, then choose Import a save on the full game's menu." }),
+      el("div", { class: "btn-row" }, [get, exp]),
+      menu,
+    ]);
+    this.stage.className = "stage center";
+    mount(this.stage, card);
+    get.focus();
+  }
+
+  /** Put your colleagues in the room: your team lead at the other desk, and a visitor who changes each chapter. */
+  private castOffice(): void {
+    const leads = ["mags", "theo", "priya", "imani", "rook", "juno"];
+    const lead = this.s.hired && this.s.track ? (SCREENINGS.find((x) => x.dept === this.s.track)?.screener ?? null) : null;
+    const others = leads.filter((k) => k !== lead);
+    // in the blackout everyone who can be is out on a call
+    const visitor = lead && this.s.chapter >= 1 && this.s.chapter <= 4 ? others[this.s.chapter % others.length] : null;
+    this.scene.setCast(lead, visitor);
+  }
+
+  /** The tickets on your screen: the chapter's cases, and the side case. */
+  screenTickets(): void {
+    const plan = chapterPlan(this.s.chapter);
+    if (!plan) return;
+    const tickets = [...plan.main, ...plan.side].map(ticketById).filter(isVisible(this.s)) as Ticket[];
+    const head = el("div", { class: "desk-head" }, [
+      el("div", { class: "chapter-badge", text: `${plan.title}: ${plan.subtitle}` }),
+      el("h2", { class: "chapter-title", text: "Your tickets" }),
+      el("p", { class: "desk-note", text: tickets.some((t) => !isDone(this.s, t.id)) ? "Pick one up. The side case is optional, and worth doing." : "Everything here is closed." }),
+    ]);
+    const queue = el("div", { class: "queue" });
+    for (const t of tickets) queue.append(this.ticketCard(t, isDone(this.s, t.id)));
+    const back = el("button", { class: "btn ghost", type: "button", text: "Back to the office" });
+    back.addEventListener("click", () => {
+      audio.click();
+      this.screenChapter();
+    });
+    this.stage.className = "stage";
+    mount(this.stage, head, queue, el("div", { class: "desk-footer" }, [back]));
+  }
+
+  /** What the alert queue has waiting, in a line. */
+  private alertNote(alerts: ReturnType<typeof queueFor>, open: boolean): string {
     const left = looksLeft(this.s, alerts);
     const unopened = waiting(this.s, alerts).length;
     const st = triageStats(this.s, alerts);
-    const note = open
+    return open
       ? unopened > 0 && left > 0
         ? `${unopened} alert${unopened === 1 ? "" : "s"} waiting, and time to open ${left}. The rest age out when you continue.`
         : "An alert is open and waiting for your call."
       : st.calls > 0
-        ? `Worked. ${st.rightCalls} of ${st.calls} call${st.calls === 1 ? "" : "s"} right.`
-        : "Nothing left to work.";
-    const go = el("button", { class: open ? "btn primary small alert-queue-open" : "btn ghost small alert-queue-review", type: "button", text: open ? "Work the queue" : "Look back at the queue" });
-    go.addEventListener("click", () => {
-      audio.click();
-      screenTriage(this);
-    });
-    return el("div", { class: open ? "alert-panel" : "alert-panel worked" }, [
-      el("div", {}, [el("div", { class: "alert-panel-k", text: "Alert queue" }), el("p", { class: "alert-panel-note", text: note })]),
-      go,
-    ]);
+        ? `Alert queue worked. ${st.rightCalls} of ${st.calls} call${st.calls === 1 ? "" : "s"} right.`
+        : "Nothing left in the alert queue.";
   }
 
   private ticketCard(t: Ticket, done: boolean): HTMLElement {
@@ -382,6 +489,8 @@ export class App implements Host {
       if (t.attack?.length) unlockCodex(this.s, "attack");
     }
     this.persist();
+
+    if (firstTime) stampCase(this.root, grade.botched, grade.wrongAttempts === 0);
 
     const rankedUp = rankIndex(this.s) > beforeRank;
     const lines = grade.botched
