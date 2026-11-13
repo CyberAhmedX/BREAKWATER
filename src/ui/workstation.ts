@@ -16,23 +16,38 @@ import { type QuestionContext, buildQuestion } from "./questions";
 // The case workstation: evidence on one side, your analysis on the other, and
 // the rules for submitting, retrying and closing a case.
 
-// One plain, beginner-friendly line per hands-on tool, shown the first time a
-// player meets it. Keyed by evidence kind or question type. No em dashes.
+// One plain line per hands-on tool on how it is driven. It is shown the first
+// time a player meets the tool, and stays behind the ? on the tool afterwards.
+// These remind you of the method and never name a case's own values, so they
+// cannot hand over an answer: only a screening shows a worked example.
+// Keyed by evidence kind or question type. No em dashes.
 const TOOL_TIPS: Record<string, string> = {
-  terminal: "New tool: the terminal. Type a command and press Enter, like grep lab-pc-07 dns.log, and chain them with pipes: cut -f2 dns.log | sort | uniq -c.",
-  siem: "New tool: the SIEM. Filter with field=value, then pipe to stats, like action=failure | stats count by src_ip | sort -count.",
-  firewall: "New tool: the firewall editor. Write allow and deny rules in order, then Replay traffic to see what each flow does. The first matching rule wins.",
-  console: "New tool: the admin console. Lock a hijacked account down in order: reset the password, end its sessions, remove bad mail rules, fix MFA.",
-  merge: "New tool: the timeline builder. Set each log's time zone so the events line up on one clock. Get it wrong and things happen out of order.",
-  request: "New tool: the request editor. Change a value in the request, press Send, and read the reply. Each reply tells you a little more about how the site behaves.",
-  pivot: "New tool: the pivot board. Search a domain or address, then follow it to the rest of the attacker's infrastructure.",
-  scope: "New tool: the scope checker. Tick only the addresses the engagement letter allows. Exclusions win, and anything not listed is out.",
-  cvss: "New tool: the CVSS calculator. Pick a value for each metric to build the vector and get the score.",
-  detect: "New tool: the detection rule editor. Write a rule, then test it against the replay. Catch the attack and stay quiet on the false alarms.",
-  report: "New tool: write the report in your own words. It is checked for the key facts: what happened, from where, and the fix.",
-  "attack-map": "New tool: map each behaviour you saw to its MITRE ATT&CK technique id. Look ids up in the matrix if you need to.",
-  iocs: "New tool: paste the indicators onto the block list, defanged so nobody clicks them, like 203[.]0[.]113[.]77.",
+  terminal: "The terminal. Type a command and press Enter. Look first with ls, cat and head. To find what stands out, cut out one column, then count what repeats with sort and uniq -c. A pipe (|) feeds one command into the next, and help lists them all.",
+  siem: "The SIEM. Narrow the events down with field=value, then summarise what is left: | stats count by a field groups them, and | sort -count puts the biggest group first. Click a field name to add it to the search.",
+  firewall: "The firewall editor. Write allow and deny rules in order, then Replay traffic to see what each flow does. The first matching rule wins, so order matters as much as the rules do.",
+  console: "The admin console. Each button is one action on the account. Ask what the attacker can still use to get back in, and take those things away in an order that does not leave a door open behind you.",
+  merge: "The timeline builder. Set each log's time zone so the events line up on one clock. If something happens before its cause, one of the clocks is still wrong.",
+  request: "The request editor. Change one value in the request, press Send, and read the reply. Each reply tells you a little more about how the site behaves, so change one thing at a time.",
+  pivot: "The pivot board. Search a domain or an address, then click a result to follow it. Keep going until nothing new turns up.",
+  scope: "The scope checker. Type an address or a range and it tells you where it sits against the engagement letter. Exclusions win, and anything not listed is out.",
+  cvss: "The CVSS calculator. Pick a value for each metric from what you saw, not what you fear. It builds the vector and the score for you.",
+  detect: "The detection rule editor. Write a rule, then test it against the replay. A good rule catches the attack and stays quiet on the false alarms, so tighten it until both are true.",
+  report: "Write the report in your own words, for someone who was not in the room: what happened, how it happened, where it came from, and the fix.",
+  "attack-map": "Map each behaviour you saw to its MITRE ATT&CK technique id. Search the matrix by a plain word if you do not know the id.",
+  iocs: "Put the indicators on the block list, one per line and defanged so nobody can click them, like bad[.]example.",
 };
+
+/** A ? that opens the tool's reminder line. */
+function reminder(tip: string, label: string): { button: HTMLElement; strip: HTMLElement } {
+  const strip = el("p", { class: "tool-reminder", hidden: true, text: tip });
+  const button = el("button", { class: "win-btn win-help", type: "button", "aria-label": label, title: label, "aria-expanded": "false", text: "?" });
+  button.addEventListener("click", () => {
+    audio.click();
+    strip.hidden = !strip.hidden;
+    button.setAttribute("aria-expanded", String(!strip.hidden));
+  });
+  return { button, strip };
+}
 
 /** Seconds wrong on a live case cost. */
 const LIVE_PENALTY = 15;
@@ -55,7 +70,17 @@ export function ticketWorkstation(host: Host, t: Ticket, review: boolean): void 
   // count commands and searches, for the note on how directly you got there
   const used = { terminal: 0, siem: 0, firewall: 0, console: 0, merge: 0, request: 0, pivot: 0, scope: 0, attackdb: 0 };
   evPanel.addEventListener("tool-command", (e) => used[(e as CustomEvent<{ kind: keyof typeof used }>).detail.kind]++);
-  const controls: QuestionControl[] = t.questions.map((q) => buildQuestion(host, q, qPanel, ctx));
+  const controls: QuestionControl[] = t.questions.map((q) => {
+    const control = buildQuestion(host, q, qPanel, ctx);
+    // a question that is itself a tool carries the tool's reminder (not on hard mode, which has no help)
+    const block = qPanel.lastElementChild;
+    if (TOOL_TIPS[q.type] && block && !review && !host.s.hard) {
+      const r = reminder(TOOL_TIPS[q.type], "How this works");
+      r.button.classList.add("q-help");
+      block.prepend(r.button, r.strip);
+    }
+    return control;
+  });
 
   const submit = el("button", { class: "btn primary", type: "button", text: review ? "Back to desk" : "Submit findings" });
   const feedback = el("div", { class: "ws-feedback" });
@@ -180,7 +205,7 @@ export function ticketWorkstation(host: Host, t: Ticket, review: boolean): void 
   // one plain line on how to drive it, with an example. Shown once per tool,
   // never in review mode.
   const coachTips: string[] = [];
-  if (!review) {
+  if (!review && !host.s.hard) {
     const keys = new Set<string>();
     for (const ev of t.evidence) if (TOOL_TIPS[ev.kind]) keys.add(ev.kind);
     for (const q of t.questions) if (TOOL_TIPS[q.type]) keys.add(q.type);
@@ -220,6 +245,18 @@ export function ticketWorkstation(host: Host, t: Ticket, review: boolean): void 
   const windows = [...evPanel.querySelectorAll<HTMLElement>(":scope > .ev"), notes];
   host.stage.className = "stage ticket";
   mount(host.stage, desk, desktopFor(desk, windows, host.s.playerName, host.s.chapter));
+
+  // every tool keeps its reminder behind a ? in its title bar
+  if (!review && !host.s.hard) {
+    for (const ev of t.evidence) {
+      const win = evPanel.querySelector<HTMLElement>(`[data-ev="${ev.id}"]`);
+      const head = win?.querySelector(".ev-head");
+      if (!TOOL_TIPS[ev.kind] || !win || !head) continue;
+      const r = reminder(TOOL_TIPS[ev.kind], "How this tool works");
+      head.querySelector(".win-btns")?.prepend(r.button);
+      head.after(r.strip);
+    }
+  }
 }
 
 /** The countdown on a live case. It stops itself once the case leaves the screen. */

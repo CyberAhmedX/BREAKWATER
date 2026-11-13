@@ -11,7 +11,8 @@ code, no imported sprites) are original to this project.
 
 Every sound in the game, the soundtrack and all effects, is **synthesized at
 runtime** with the Web Audio API in `src/audio/audio.ts`. There are no audio
-files and no samples.
+files and no samples. Each chapter's piece of music is written out as data in the
+same file (its chords, bass and melody) and is original to this game.
 
 ## Fonts
 

@@ -6,6 +6,19 @@ All notable changes to Breakwater, newest first. This file follows
 
 Download: https://github.com/CyberAhmedX/BREAKWATER/releases/latest &middot; Demo: https://cyberahmedx.github.io/BREAKWATER/
 
+## [Unreleased]
+
+### Added
+- **A piece of music for every chapter.** Each chapter now has its own written piece, with its own key, tempo, melody, bass and percussion, from a slow waltz in the lobby to a held note and a heartbeat in the storm. All of it is original and synthesized as you play.
+- **A reminder on every tool.** Each tool has a ? in its title bar that says how the tool is driven. It reminds you of the method and never names the answer.
+
+### Changed
+- **Hints no longer solve the case.** The first-use tips and the example in the SIEM search box used to show a search that answered the case in front of you. They now describe the method only. A screening is the one place a worked example is given.
+- **Hard mode has no help at all**: no worked example in the screening, no first-use tips and no reminders.
+
+### Fixed
+- In the storm the music, rain, wind and thunder could clip when they sounded together. The output now goes through a limiter.
+
 ## [3.2.1] - 2026-11-12
 
 ### Fixed
