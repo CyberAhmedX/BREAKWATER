@@ -1,38 +1,105 @@
 import type { Chapter } from "../engine/types";
 
 // Every sound in Breakwater is synthesized at runtime with the Web Audio API.
-// Nothing is sampled or copied. The soundtrack is a slow generative pad plus a
-// sparse melody whose scale and tempo shift with the chapter: warm and major
-// early, hollow and minor by the storm.
+// Nothing is sampled or copied. Each chapter has its own piece of music,
+// written here as plain data: a chord loop, a bass figure and a melody, with
+// its own tempo, key and instruments. The pieces are original to this game.
 
-interface Palette {
-  root: number; // root frequency
-  scale: number[]; // semitone offsets
-  tempo: number; // seconds per step
+type Note = number | null; // semitones above the song's root, or a rest
+
+interface Song {
+  name: string;
+  step: number; // seconds per step
+  bar: number; // steps in a bar
+  root: number; // Hz
+  chords: number[][]; // one per bar: semitones above the root, lowest first
+  bass: Note[]; // one bar long, semitones above the chord's lowest note
+  lead: Note[]; // the melody, as long as the whole loop
   padType: OscillatorType;
   leadType: OscillatorType;
   cutoff: number; // lowpass on the pad
+  padGain: number;
   leadGain: number;
-  drone: boolean;
+  bassGain: number;
+  rest: number; // chance a melody note sits a pass out, so the loop breathes
+  perc: "none" | "tick" | "brush" | "pulse" | "heart";
+  arp?: boolean; // run up and down the chord under the melody
+  drone?: boolean; // a low note held under everything
 }
 
 const semitone = (root: number, n: number): number => root * Math.pow(2, n / 12);
+const _ = null;
 
-const PALETTES: Record<Chapter, Palette> = {
-  // cozy, lydian-ish C
-  0: { root: 130.81, scale: [0, 2, 4, 7, 9, 11], tempo: 0.62, padType: "triangle", leadType: "sine", cutoff: 1600, leadGain: 0.12, drone: false },
-  1: { root: 130.81, scale: [0, 2, 4, 7, 9], tempo: 0.6, padType: "triangle", leadType: "sine", cutoff: 1500, leadGain: 0.12, drone: false },
-  // warm major, a touch slower
-  2: { root: 123.47, scale: [0, 2, 3, 5, 7, 10], tempo: 0.66, padType: "triangle", leadType: "sine", cutoff: 1200, leadGain: 0.1, drone: false },
-  // dorian, rain
-  3: { root: 110.0, scale: [0, 2, 3, 5, 7, 8, 10], tempo: 0.72, padType: "sawtooth", leadType: "triangle", cutoff: 900, leadGain: 0.09, drone: false },
-  // minor, tense
-  4: { root: 98.0, scale: [0, 2, 3, 5, 7, 8], tempo: 0.8, padType: "sawtooth", leadType: "triangle", cutoff: 680, leadGain: 0.08, drone: true },
-  // phrygian drone, blackout
-  5: { root: 87.31, scale: [0, 1, 3, 5, 6, 8], tempo: 0.9, padType: "sawtooth", leadType: "sine", cutoff: 520, leadGain: 0.07, drone: true },
-  // resolve
-  6: { root: 116.54, scale: [0, 2, 4, 7, 9], tempo: 0.7, padType: "triangle", leadType: "sine", cutoff: 1100, leadGain: 0.1, drone: false },
+const SONGS: Record<Chapter, Song> = {
+  // Lobby, morning: a slow waltz in C lydian, all air and light
+  0: {
+    name: "Morning Tide",
+    step: 0.3, bar: 6, root: 130.81,
+    chords: [[0, 7, 16, 23], [2, 9, 18, 21], [-3, 4, 12, 19], [-5, 2, 11, 19]],
+    bass: [0, _, _, _, _, _],
+    lead: [19, _, 23, _, 28, _, 26, _, 21, _, 18, _, 24, _, 19, _, 16, _, 14, _, _, 19, _, _],
+    padType: "triangle", leadType: "sine", cutoff: 1600, padGain: 0.04, leadGain: 0.1, bassGain: 0.06, rest: 0.1, perc: "none",
+  },
+  // Fair Weather: bright and busy, C major, a tune you could whistle
+  1: {
+    name: "Fair Weather",
+    step: 0.27, bar: 8, root: 130.81,
+    chords: [[0, 4, 7, 12], [7, 11, 14, 19], [9, 12, 16, 21], [5, 9, 12, 17]],
+    bass: [0, _, _, 0, _, _, 7, _],
+    lead: [16, _, 19, _, 24, _, 19, 16, 14, _, 19, _, 23, _, 19, _, 16, _, 21, _, 24, _, 21, 19, 17, _, 21, _, 19, 17, 16, _],
+    padType: "triangle", leadType: "triangle", cutoff: 1500, padGain: 0.035, leadGain: 0.1, bassGain: 0.07, rest: 0.08, perc: "tick",
+  },
+  // Overcast: slower, B dorian, more space between the notes
+  2: {
+    name: "Overcast",
+    step: 0.34, bar: 8, root: 123.47,
+    chords: [[0, 3, 7, 10], [5, 9, 12, 15], [0, 3, 7, 10], [-2, 2, 5, 10]],
+    bass: [0, _, _, _, 0, _, _, _],
+    lead: [15, _, _, 14, _, 10, _, _, 12, _, _, 9, _, _, 7, _, 10, _, 14, _, 15, _, _, _, 14, _, _, 10, _, _, _, _],
+    padType: "triangle", leadType: "sine", cutoff: 1200, padGain: 0.04, leadGain: 0.1, bassGain: 0.07, rest: 0.18, perc: "brush",
+  },
+  // Squall: A minor, a restless figure running under long held notes, like rain on the glass
+  3: {
+    name: "Squall",
+    step: 0.2, bar: 8, root: 110.0,
+    chords: [[0, 3, 7, 12], [-4, 0, 3, 8], [3, 7, 10, 15], [-2, 2, 5, 10]],
+    bass: [0, _, _, _, _, _, 0, _],
+    lead: [24, _, _, _, _, _, 22, _, 20, _, _, _, _, _, _, _, 19, _, _, _, 22, _, _, _, 17, _, _, _, _, _, 14, _],
+    padType: "sawtooth", leadType: "triangle", cutoff: 900, padGain: 0.03, leadGain: 0.09, bassGain: 0.08, rest: 0.1, perc: "none", arp: true,
+  },
+  // Gale: G minor at a run, a bass that will not let up and a major chord that does not resolve
+  4: {
+    name: "Gale",
+    step: 0.18, bar: 8, root: 98.0,
+    chords: [[0, 3, 7, 12], [0, 3, 7, 10], [-4, 0, 3, 8], [-5, -1, 2, 7]],
+    bass: [0, _, 0, _, 0, _, 0, 0],
+    lead: [19, _, _, 22, _, 19, _, _, 24, _, _, 22, _, _, 19, _, 20, _, _, 24, _, 20, _, _, 18, _, _, _, 21, _, 18, _],
+    padType: "sawtooth", leadType: "triangle", cutoff: 700, padGain: 0.03, leadGain: 0.085, bassGain: 0.09, rest: 0.06, perc: "pulse",
+  },
+  // Storm Surge: F phrygian, hardly a tune at all. A held low note, a heartbeat, and bells that do not agree with it
+  5: {
+    name: "Storm Surge",
+    step: 0.45, bar: 8, root: 87.31,
+    chords: [[0, 7, 12], [1, 8, 13], [0, 7, 12], [-2, 5, 10]],
+    bass: [_, _, _, _, _, _, _, _],
+    lead: [24, _, _, _, _, 25, _, _, _, _, _, _, _, _, _, _, 31, _, _, _, 30, _, _, _, _, _, 22, _, _, _, _, _],
+    padType: "sawtooth", leadType: "sine", cutoff: 520, padGain: 0.035, leadGain: 0.07, bassGain: 0, rest: 0.25, perc: "heart", drone: true,
+  },
+  // After: B flat major, slow as a hymn, and it resolves
+  6: {
+    name: "After",
+    step: 0.4, bar: 8, root: 116.54,
+    chords: [[0, 4, 7, 12], [5, 9, 12, 16], [-3, 0, 4, 9], [-5, -1, 2, 7]],
+    bass: [0, _, _, _, _, _, _, _],
+    lead: [16, _, _, _, 19, _, _, _, 21, _, _, _, 17, _, _, _, 19, _, _, 16, _, _, 12, _, 14, _, _, _, _, _, _, _],
+    padType: "triangle", leadType: "sine", cutoff: 1100, padGain: 0.04, leadGain: 0.1, bassGain: 0.07, rest: 0.05, perc: "none",
+  },
 };
+
+/** The name of each chapter's piece, for the credits and the tests. */
+export const SONG_NAMES: Record<Chapter, string> = Object.fromEntries(Object.entries(SONGS).map(([k, v]) => [k, v.name])) as Record<Chapter, string>;
+/** The pieces themselves, read-only, so the tests can check they are well formed. */
+export const SONG_DATA: Readonly<Record<Chapter, Readonly<Song>>> = SONGS;
 
 export class AudioEngine {
   private ac: AudioContext | null = null;
@@ -50,7 +117,8 @@ export class AudioEngine {
   private muted = false;
   private musicVolume = 0.7;
   private effectsVolume = 0.7;
-  private palette: Palette = PALETTES[0];
+  private song: Song = SONGS[0];
+  private noise: AudioBuffer | null = null;
   private step = 0;
   private nextTime = 0;
   private timer = 0;
@@ -69,7 +137,16 @@ export class AudioEngine {
     this.ac = new Ctx();
     this.master = this.ac.createGain();
     this.master.gain.value = this.muted ? 0 : 1;
-    this.master.connect(this.ac.destination);
+    // A limiter on the way out: in the storm the music, rain, wind and thunder
+    // all sound at once, and together they must not clip.
+    const limiter = this.ac.createDynamicsCompressor();
+    limiter.threshold.value = -9;
+    limiter.knee.value = 6;
+    limiter.ratio.value = 14;
+    limiter.attack.value = 0.003;
+    limiter.release.value = 0.2;
+    this.master.connect(limiter);
+    limiter.connect(this.ac.destination);
 
     this.musicBus = this.ac.createGain();
     this.musicBus.gain.value = this.musicVolume;
@@ -120,7 +197,7 @@ export class AudioEngine {
       if (!this.ac) return;
       while (this.nextTime < this.ac.currentTime + 0.3) {
         this.scheduleStep(this.nextTime);
-        this.nextTime += this.palette.tempo;
+        this.nextTime += this.song.step;
         this.step++;
       }
       this.ambience();
@@ -139,7 +216,9 @@ export class AudioEngine {
   }
 
   setChapter(ch: Chapter): void {
-    this.palette = PALETTES[ch];
+    // a new chapter's piece starts from its first bar
+    if (SONGS[ch] !== this.song) this.step = 0;
+    this.song = SONGS[ch];
     this.chapter = ch;
     if (this.ac) {
       // the wind gets up with the gale and howls through the storm
@@ -149,32 +228,86 @@ export class AudioEngine {
     }
   }
 
-  // ---- generative step ----
+  // ---- one step of the chapter's piece ----
   private scheduleStep(t: number): void {
     if (!this.ac) return;
-    const p = this.palette;
+    const s = this.song;
+    const pos = this.step % (s.chords.length * s.bar);
+    const inBar = pos % s.bar;
+    const chord = s.chords[Math.floor(pos / s.bar)];
+    const barLen = s.step * s.bar;
 
-    // pad chord every 4 steps
-    if (this.step % 4 === 0) {
-      const degrees = [0, 2, 4];
-      degrees.forEach((d, i) => {
-        const n = p.scale[d % p.scale.length] + (d >= p.scale.length ? 12 : 0);
-        this.voice(semitone(p.root, n), t, p.tempo * 4.2, p.padType, 0.05, p.cutoff);
-        void i;
-      });
-      if (p.drone) this.voice(p.root / 2, t, p.tempo * 4.2, "sine", 0.06, 300);
+    // the chord, held for the bar
+    if (inBar === 0) {
+      for (const n of chord) this.voice(semitone(s.root, n), t, barLen * 1.05, s.padType, s.padGain, s.cutoff);
+      if (s.drone) this.voice(s.root / 2, t, barLen * 1.05, "sine", 0.06, 300);
     }
 
-    // sparse lead, pentatonic walk, skips some steps for space
-    if (this.step % 2 === 0 && Math.random() > 0.35) {
-      const idx = Math.floor(Math.random() * p.scale.length);
-      const oct = Math.random() > 0.6 ? 12 : 0;
-      const freq = semitone(p.root, p.scale[idx] + 12 + oct);
-      this.voice(freq, t + 0.02, p.tempo * 1.4, p.leadType, p.leadGain, p.cutoff * 1.6, true);
+    const b = s.bass[inBar];
+    if (b !== null && s.bassGain > 0) this.voice(semitone(s.root, chord[0] + b), t, s.step * 1.8, "triangle", s.bassGain, 420, true);
+
+    // up and down the chord, an octave above it
+    if (s.arp) {
+      const tone = chord[[0, 1, 2, 1][inBar % 4] % chord.length] + 12;
+      this.voice(semitone(s.root, tone), t, s.step * 0.9, s.leadType, s.leadGain * 0.4, s.cutoff * 1.4, true);
     }
 
-    // soft tick on the beat for cozy chapters
-    if (!p.drone && this.step % 4 === 2) this.blip(1200, t, 0.03, 0.015, "square");
+    // the melody is written out, but any note may sit a pass out
+    const n = s.lead[pos];
+    if (n !== null && n !== undefined && Math.random() >= s.rest) this.voice(semitone(s.root, n), t + 0.01, s.step * 2.4, s.leadType, s.leadGain, s.cutoff * 1.8, true);
+
+    this.percussion(s.perc, inBar, t);
+  }
+
+  private percussion(kind: Song["perc"], inBar: number, t: number): void {
+    const half = Math.floor(this.song.bar / 2);
+    if (kind === "tick" && (inBar === 2 || inBar === 6)) this.tone(1200, 1200, t, 0.03, 0.014, "square");
+    if (kind === "brush" && inBar === half) this.hiss(t, 0.09, 0.018);
+    if (kind === "pulse" && (inBar === 0 || inBar === half)) this.tone(110, 46, t, 0.14, 0.11, "sine");
+    if (kind === "pulse" && inBar % 2 === 1) this.hiss(t, 0.03, 0.008);
+    if (kind === "heart" && inBar % 4 === 0) {
+      this.tone(80, 42, t, 0.16, 0.1, "sine");
+      this.tone(70, 40, t + 0.26, 0.14, 0.07, "sine");
+    }
+  }
+
+  /** A short pitched hit on the music bus. The pitch can fall, for a drum. */
+  private tone(from: number, to: number, t: number, dur: number, gain: number, type: OscillatorType): void {
+    if (!this.ac) return;
+    const o = this.ac.createOscillator();
+    const g = this.ac.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(from, t);
+    if (to !== from) o.frequency.exponentialRampToValueAtTime(to, t + dur);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(gain, t + 0.006);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g);
+    g.connect(this.musicGain);
+    o.start(t);
+    o.stop(t + dur + 0.02);
+  }
+
+  /** A soft burst of noise on the music bus, like a brush on a snare. */
+  private hiss(t: number, dur: number, gain: number): void {
+    if (!this.ac) return;
+    if (!this.noise) {
+      this.noise = this.ac.createBuffer(1, this.ac.sampleRate, this.ac.sampleRate);
+      const d = this.noise.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    }
+    const src = this.ac.createBufferSource();
+    src.buffer = this.noise;
+    const f = this.ac.createBiquadFilter();
+    f.type = "highpass";
+    f.frequency.value = 4000;
+    const g = this.ac.createGain();
+    g.gain.setValueAtTime(gain, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    src.connect(f);
+    f.connect(g);
+    g.connect(this.musicGain);
+    src.start(t, Math.random() * 0.5, dur + 0.02);
   }
 
   private voice(freq: number, t: number, dur: number, type: OscillatorType, gain: number, cutoff: number, pluck = false): void {

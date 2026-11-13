@@ -153,7 +153,8 @@ function runPractical(host: Host, asked: number, correct: number): void {
   const card = el("div", { class: "card-panel iv-card iv-practical" }, [
     head,
     el("p", { class: "iv-say", text: p.intro }),
-    el("div", { class: "coach" }, [el("div", { class: "coach-head", text: "How to drive it" }), el("p", { class: "coach-tip", text: p.howTo })]),
+    // the one place a worked example is given: your first go on the tool. Hard mode goes without.
+    host.s.hard ? el("span") : el("div", { class: "coach" }, [el("div", { class: "coach-head", text: "How to drive it" }), el("p", { class: "coach-tip", text: p.howTo })]),
     evPanel,
     qPanel,
     feedback,

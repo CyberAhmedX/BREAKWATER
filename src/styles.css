@@ -1397,3 +1397,12 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
 .menu-demo { margin: 0; max-width: 420px; color: var(--fg-dim); font-size: calc(13.5px * var(--ts)); }
 .demo-end a.btn { text-decoration: none; text-align: center; }
 .demo-end .chapter-title { margin: 0; }
+
+/* ------------------------------------------------------------------ tool reminders */
+.win-help { font-family: var(--mono); font-size: calc(13px * var(--ts)); color: var(--teal); }
+.tool-reminder { margin: 0; padding: 10px 14px; background: #10262b; border-bottom: 1px solid rgba(70, 198, 184, 0.35); color: var(--fg); font-size: calc(13.5px * var(--ts)); }
+.tool-reminder[hidden] { display: none; }
+.q-block { position: relative; }
+.q-help { position: absolute; top: 10px; right: 10px; border-color: var(--edge); }
+.q-block > .tool-reminder { margin: 0 0 12px; border: 1px solid rgba(70, 198, 184, 0.35); border-radius: 8px; padding-right: 44px; }
+.ev.min > .tool-reminder { display: none; }
