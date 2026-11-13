@@ -6,6 +6,15 @@ All notable changes to Breakwater, newest first. This file follows
 
 Download: https://github.com/CyberAhmedX/BREAKWATER/releases/latest &middot; Demo: https://cyberahmedx.github.io/BREAKWATER/
 
+## [3.4.0] - 2026-11-13
+
+### Added
+- **A way back to the main menu.** A Main menu button sits in the top bar while a game is running. Your run is saved, and Continue picks it up again. A case you had open starts again from its beginning.
+- **The main menu has its own music.** It used to play the piece of whichever chapter your save was in. It now always plays the lobby's piece, and each chapter's piece starts when you continue.
+
+### Fixed
+- **The music no longer plays over itself.** Each chord rang for about a bar and a half, so it was still sounding when the next chord came in, and a melody note could hang on over the ones after it. Every note now ends when the next is due. When the music changes, between chapters or between the main menu and a chapter in either direction, the old piece fades out fully before the new one starts.
+
 ## [3.3.0] - 2026-11-13
 
 ### Added

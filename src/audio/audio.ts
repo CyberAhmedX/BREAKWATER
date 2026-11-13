@@ -215,11 +215,28 @@ export class AudioEngine {
     if (this.ac) this.ambGain.gain.setTargetAtTime(0, this.ac.currentTime, 0.4);
   }
 
-  setChapter(ch: Chapter): void {
-    // a new chapter's piece starts from its first bar
-    if (SONGS[ch] !== this.song) this.step = 0;
-    this.song = SONGS[ch];
+  /**
+   * Set the weather to a chapter's, and the music to a piece. The piece is the
+   * chapter's own unless another is asked for: the main menu keeps the lobby's
+   * piece whatever the weather outside its window.
+   */
+  setChapter(ch: Chapter, piece: Chapter = ch): void {
+    const changed = SONGS[piece] !== this.song;
+    this.song = SONGS[piece];
     this.chapter = ch;
+    if (changed) {
+      // A new chapter's piece starts from its first bar, after a breath of
+      // silence. The old piece is faded right out first, so the last notes it
+      // had already begun do not sound over the new one.
+      this.step = 0;
+      if (this.ac) {
+        const now = this.ac.currentTime;
+        this.musicGain.gain.cancelScheduledValues(now);
+        this.musicGain.gain.setTargetAtTime(0, now, 0.08);
+        this.musicGain.gain.setTargetAtTime(0.9, now + 0.7, 0.15);
+        this.nextTime = now + 0.75;
+      }
+    }
     if (this.ac) {
       // the wind gets up with the gale and howls through the storm
       this.windGain.gain.setTargetAtTime(ch === 5 ? 0.22 : ch === 4 ? 0.12 : ch === 3 ? 0.04 : 0, this.ac.currentTime, 1.5);
@@ -237,24 +254,30 @@ export class AudioEngine {
     const chord = s.chords[Math.floor(pos / s.bar)];
     const barLen = s.step * s.bar;
 
-    // the chord, held for the bar
+    // The chord, held for its own bar and no longer: it fades out as the next
+    // one fades in, so two chords are never sounding over each other.
     if (inBar === 0) {
-      for (const n of chord) this.voice(semitone(s.root, n), t, barLen * 1.05, s.padType, s.padGain, s.cutoff);
-      if (s.drone) this.voice(s.root / 2, t, barLen * 1.05, "sine", 0.06, 300);
+      for (const n of chord) this.voice(semitone(s.root, n), t, barLen * 0.82, barLen * 0.2, s.padType, s.padGain, s.cutoff, barLen * 0.18);
+      if (s.drone) this.voice(s.root / 2, t, barLen * 0.9, barLen * 0.12, "sine", 0.06, 300, barLen * 0.1);
     }
 
     const b = s.bass[inBar];
-    if (b !== null && s.bassGain > 0) this.voice(semitone(s.root, chord[0] + b), t, s.step * 1.8, "triangle", s.bassGain, 420, true);
+    if (b !== null && s.bassGain > 0) this.voice(semitone(s.root, chord[0] + b), t, s.step * 0.9, s.step * 0.5, "triangle", s.bassGain, 420);
 
     // up and down the chord, an octave above it
     if (s.arp) {
       const tone = chord[[0, 1, 2, 1][inBar % 4] % chord.length] + 12;
-      this.voice(semitone(s.root, tone), t, s.step * 0.9, s.leadType, s.leadGain * 0.4, s.cutoff * 1.4, true);
+      this.voice(semitone(s.root, tone), t, s.step * 0.5, s.step * 0.4, s.leadType, s.leadGain * 0.4, s.cutoff * 1.4);
     }
 
-    // the melody is written out, but any note may sit a pass out
+    // The melody is written out, but any note may sit a pass out. A note lasts
+    // until the next one is due, then lets go.
     const n = s.lead[pos];
-    if (n !== null && n !== undefined && Math.random() >= s.rest) this.voice(semitone(s.root, n), t + 0.01, s.step * 2.4, s.leadType, s.leadGain, s.cutoff * 1.8, true);
+    if (n !== null && n !== undefined && Math.random() >= s.rest) {
+      let gap = 1;
+      while (gap < 4 && s.lead[(pos + gap) % s.lead.length] === null) gap++;
+      this.voice(semitone(s.root, n), t + 0.01, s.step * gap * 0.8, s.step * 0.6, s.leadType, s.leadGain, s.cutoff * 1.8);
+    }
 
     this.percussion(s.perc, inBar, t);
   }
@@ -310,7 +333,12 @@ export class AudioEngine {
     src.start(t, Math.random() * 0.5, dur + 0.02);
   }
 
-  private voice(freq: number, t: number, dur: number, type: OscillatorType, gain: number, cutoff: number, pluck = false): void {
+  /**
+   * One note on the music bus: it swells for `attack`, holds until `hold`, and
+   * is silent by `hold + release`. Every length is given by the caller, so a
+   * note never rings on into music it does not belong to.
+   */
+  private voice(freq: number, t: number, hold: number, release: number, type: OscillatorType, gain: number, cutoff: number, attack = 0.01): void {
     if (!this.ac) return;
     const o = this.ac.createOscillator();
     const g = this.ac.createGain();
@@ -321,16 +349,16 @@ export class AudioEngine {
     o.frequency.value = freq;
     // gentle detune for warmth
     o.detune.value = (Math.random() - 0.5) * 6;
-    const attack = pluck ? 0.01 : 0.4;
-    const release = pluck ? dur * 0.6 : dur * 0.5;
+    const rise = Math.min(attack, hold * 0.5);
     g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(gain, t + attack);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + dur + release);
+    g.gain.exponentialRampToValueAtTime(gain, t + rise);
+    g.gain.setValueAtTime(gain, t + hold);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + hold + release);
     o.connect(f);
     f.connect(g);
     g.connect(this.musicGain);
     o.start(t);
-    o.stop(t + dur + release + 0.05);
+    o.stop(t + hold + release + 0.05);
   }
 
   // ---- rain as filtered noise ----

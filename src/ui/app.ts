@@ -124,7 +124,24 @@ export class App implements Host {
   private wakeAudio(): void {
     audio.init();
     audio.startMusic();
-    audio.setChapter(this.s.chapter);
+    this.syncAudio();
+  }
+
+  /** The main menu has its own music. Once a game is running, each chapter has its own. */
+  private syncAudio(): void {
+    audio.setChapter(this.s.chapter, this.started ? this.s.chapter : 0);
+  }
+
+  /** Leave the game for the main menu. The run is saved, and Continue picks it up again. */
+  toMenu(): void {
+    if (this.practice) {
+      this.leavePractice();
+      return;
+    }
+    this.persist();
+    this.root.querySelectorAll(".overlay").forEach((o) => o.remove());
+    this.started = false;
+    this.render();
   }
 
   // A browser only lets a page make sound once the player has clicked or
@@ -174,6 +191,7 @@ export class App implements Host {
     }
     const btns = el("div", { class: "tb-right" }, [
       this.s.hired && !this.practice ? this.iconBtn("Field Notes", () => openCodex(this)) : el("span"),
+      this.started && !this.practice ? this.iconBtn("Main menu", () => this.toMenu()) : el("span"),
       this.iconBtn("Settings", () => openSettings(this)),
       this.iconBtn(audio.isMuted ? "Sound off" : "Sound on", () => {
         this.meta.settings.muted = !audio.isMuted;
@@ -199,7 +217,7 @@ export class App implements Host {
     this.renderTopbar();
     this.scene.setChapter(this.s.chapter);
     // the soundtrack follows the chapter, the same as the room does
-    audio.setChapter(this.s.chapter);
+    this.syncAudio();
     this.castOffice();
     if (!this.started) {
       screenTitle(this);
@@ -633,7 +651,9 @@ export class App implements Host {
     if (!this.practice) return;
     this.s = this.practice.real;
     this.practice = null;
-    audio.setChapter(this.s.chapter);
+    // practice ends on the main menu, so the menu's music comes back
+    this.started = false;
+    this.syncAudio();
     this.renderTopbar();
     this.scene.setChapter(this.s.chapter);
     screenTitle(this);

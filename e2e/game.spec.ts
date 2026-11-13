@@ -369,3 +369,28 @@ test("a save moves to a fresh browser by file and by code", async ({ page, brows
     await ctx.close();
   }
 });
+
+test("the main menu can be reached from a running game, and the run carries on from it", async ({ page }) => {
+  test.setTimeout(60_000);
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+  await startQuick(page, { version: 1, playerName: "Menu", track: "soc", hired: true, chapter: 2, xp: 60, integrity: 2, flags: ["track_soc", "intro_2"], done: ["intro_2"], codex: [], screeningScore: 5, cleanCloses: 1, totalCloses: 1, botched: 0, screeningFails: 0, hintsUsed: 0, hard: false, seed: 42, triage: {} });
+  // no way back to the menu is offered on the menu itself
+  await expect(page.getByRole("button", { name: "Main menu" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Continue as Menu" }).click();
+  await expect(page.locator(".office-hub")).toBeVisible();
+
+  // from the office
+  await page.getByRole("button", { name: "Main menu" }).click();
+  await expect(page.locator(".main-menu")).toBeVisible();
+  await page.getByRole("button", { name: "Continue as Menu" }).click();
+  await expect(page.locator(".office-hub")).toBeVisible();
+
+  // and from the middle of a case
+  await page.locator(".hot-tickets").click();
+  await page.locator(".ticket-card:not(.done)").first().click();
+  await page.getByRole("button", { name: "Main menu" }).click();
+  await expect(page.locator(".main-menu")).toBeVisible();
+  expect((await save(page)).chapter).toBe(2);
+  expect(errors).toEqual([]);
+});
