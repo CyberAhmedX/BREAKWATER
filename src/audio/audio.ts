@@ -215,9 +215,14 @@ export class AudioEngine {
     if (this.ac) this.ambGain.gain.setTargetAtTime(0, this.ac.currentTime, 0.4);
   }
 
-  setChapter(ch: Chapter): void {
-    const changed = SONGS[ch] !== this.song;
-    this.song = SONGS[ch];
+  /**
+   * Set the weather to a chapter's, and the music to a piece. The piece is the
+   * chapter's own unless another is asked for: the main menu keeps the lobby's
+   * piece whatever the weather outside its window.
+   */
+  setChapter(ch: Chapter, piece: Chapter = ch): void {
+    const changed = SONGS[piece] !== this.song;
+    this.song = SONGS[piece];
     this.chapter = ch;
     if (changed) {
       // A new chapter's piece starts from its first bar, after a breath of
