@@ -6,7 +6,7 @@ All notable changes to Breakwater, newest first. This file follows
 
 Download: https://github.com/CyberAhmedX/BREAKWATER/releases/latest &middot; Demo: https://cyberahmedx.github.io/BREAKWATER/
 
-## [Unreleased]
+## [3.3.0] - 2026-11-13
 
 ### Added
 - **A piece of music for every chapter.** Each chapter now has its own written piece, with its own key, tempo, melody, bass and percussion, from a slow waltz in the lobby to a held note and a heartbeat in the storm. All of it is original and synthesized as you play.
