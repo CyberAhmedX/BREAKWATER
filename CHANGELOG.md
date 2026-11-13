@@ -6,6 +6,11 @@ All notable changes to Breakwater, newest first. This file follows
 
 Download: https://github.com/CyberAhmedX/BREAKWATER/releases/latest &middot; Demo: https://cyberahmedx.github.io/BREAKWATER/
 
+## [Unreleased]
+
+### Fixed
+- **The music no longer plays over itself.** Each chord rang for about a bar and a half, so it was still sounding when the next chord came in, and a melody note could hang on over the ones after it. Every note now ends when the next is due. When the chapter changes, the old piece fades out fully before the new one starts.
+
 ## [3.3.0] - 2026-11-13
 
 ### Added
