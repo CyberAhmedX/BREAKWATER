@@ -171,4 +171,4 @@ See `CREDITS.md` for asset provenance and `PRIVACY.md` for the privacy note.
 
 ## License
 
-All rights reserved. See `LICENSE`.
+MIT License. See [LICENSE](LICENSE).
